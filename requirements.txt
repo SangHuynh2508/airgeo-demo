@@ -1,0 +1,7 @@
+# Python 3.10 hoặc 3.11 (đã chạy với 3.11.17 trên Windows 11)
+# mediapipe 0.10.21 là bản cuối có wheel cp310/cp311 cho Windows còn API mp.solutions.hands.
+# mediapipe tự kéo theo opencv-contrib-python; KHÔNG cài thêm opencv-python (2 gói xung đột).
+mediapipe==0.10.21
+opencv-contrib-python==4.11.0.86
+numpy==1.26.4
+OneEuroFilter==0.2.1

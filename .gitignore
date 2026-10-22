@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+# Dữ liệu ghi từ webcam: giữ thư mục, không commit file CSV
+data/*.csv
+README.md
