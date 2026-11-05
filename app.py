@@ -18,7 +18,7 @@ from airgeo.gesture.pinch import PinchDetector, draw_point
 from airgeo.recording.csv_logger import CsvLogger
 from airgeo.geometry.measure import measure
 from airgeo.geometry.recognize import recognize
-from tracker import CONNECTIONS, HandTracker
+from airgeo.tracking.hand_tracker import CONNECTIONS, HandTracker
 
 WIN = "AirGeo demo"
 PINCH_ON, PINCH_OFF = 0.20, 0.35   # ngưỡng hysteresis, chỉnh bằng phím , . khi chạy (P: đo 2D/3D)
