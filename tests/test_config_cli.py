@@ -25,3 +25,9 @@ def test_cli_overrides():
 def test_cli_rejects_bad_model():
     with pytest.raises(SystemExit):
         parse_args(["--model", "2"])
+
+
+def test_interaction_defaults():
+    c = Config()
+    assert (c.toolbar_height, c.key_size, c.hit_radius, c.label_radius) == (70, 80, 15, 25)
+    assert (c.drag_threshold, c.min_side_px, c.history_limit, c.confirm_window) == (10, 10, 50, 2.0)
