@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 
 from airgeo.filters import MovingAverage, NoFilter, OneEuro
-from gesture import PinchDetector
+from airgeo.gesture.pinch import PinchDetector, draw_point
 from logger import CsvLogger
 from airgeo.geometry.measure import measure
 from airgeo.geometry.recognize import recognize
@@ -43,14 +43,6 @@ def text(img, s, org, scale=0.5, color=(255, 255, 255)):
     # Viền đen để chữ đọc được trên mọi nền. OpenCV không vẽ được tiếng Việt có dấu.
     cv2.putText(img, s, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), 3, cv2.LINE_AA)
     cv2.putText(img, s, org, cv2.FONT_HERSHEY_SIMPLEX, scale, color, 1, cv2.LINE_AA)
-
-
-def draw_point(hand):
-    """Điểm vẽ = trung điểm ngón cái (4) và ngón trỏ (8), không phải riêng đầu ngón trỏ.
-    Khi khép/mở ngón, đầu ngón trỏ đi xuống/lên một quãng sau khi đã vượt ngưỡng chụm -> đoạn thừa
-    ở đầu và cuối nét. Hai ngón đi về phía nhau nên trung điểm gần như đứng yên."""
-    (x4, y4), (x8, y8) = hand["p4"], hand["p8"]
-    return (x4 + x8) / 2, (y4 + y8) / 2
 
 
 def make_shape(raw, smart):

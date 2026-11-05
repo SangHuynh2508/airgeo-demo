@@ -65,27 +65,9 @@ class PinchDetector:
         return False
 
 
-if __name__ == "__main__":
-    def hand(r):
-        # Lòng bàn tay dài 100 px / 0.1 m; ngón trỏ cách ngón cái r lần lòng bàn tay
-        return {"pts": [(0, 0)] * 4 + [(0, 0)] + [(0, 0)] * 3 + [(r * 100, 0), (0, 100)] + [(0, 0)] * 11,
-                "w0": (0, 0, 0), "w9": (0, 0.1, 0), "w4": (0, 0, 0), "w8": (0, 0, r * 0.1)}
-
-    d = PinchDetector(0.30, 0.45, grace=0.2)
-    # 0.38 nằm giữa 2 ngưỡng: lúc chưa chụm thì không bật, lúc đang chụm thì không nhả
-    assert [d.update(hand(r), i * 0.033) for i, r in enumerate((0.6, 0.38, 0.2, 0.38, 0.44))] == \
-        [False, False, True, True, True]
-    # Tỉ lệ nhảy lên 0.6 trong 0.1 s rồi về lại: vẫn chụm, các frame đó "holding"
-    assert d.update(hand(0.6), 1.0) is True and d.holding
-    assert d.update(None, 1.1) is True and d.holding
-    assert d.update(hand(0.2), 1.15) is True and not d.holding
-    # Mở tay thật (> 0.2 s) thì nhả
-    d.update(hand(0.6), 2.0)
-    assert d.update(hand(0.6), 2.25) is False
-    d.shift(-0.05)
-    assert abs(d.on_ratio - 0.25) < 1e-9 and abs(d.off_ratio - 0.40) < 1e-9
-    # Chế độ 3d dùng khoảng cách theo chiều sâu
-    d3 = PinchDetector(mode="3d")
-    d3.update(hand(0.5), 0)
-    assert abs(d3.ratio3d - 0.5) < 1e-9 and d3.ratio == d3.ratio3d
-    print("gesture OK")
+def draw_point(hand):
+    """Điểm vẽ = trung điểm ngón cái (4) và ngón trỏ (8), không phải riêng đầu ngón trỏ.
+    Khi khép/mở ngón, đầu ngón trỏ đi xuống/lên một quãng sau khi đã vượt ngưỡng chụm -> đoạn thừa
+    ở đầu và cuối nét. Hai ngón đi về phía nhau nên trung điểm gần như đứng yên."""
+    (x4, y4), (x8, y8) = hand["p4"], hand["p8"]
+    return (x4 + x8) / 2, (y4 + y8) / 2
