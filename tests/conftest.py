@@ -16,3 +16,35 @@ def _hand(x=320.0, y=240.0, ratio=0.1, t=0.0):
 @pytest.fixture
 def make_hand():
     return _hand
+
+
+from airgeo.interaction.pointer import PointerEvent  # noqa: E402
+
+
+@pytest.fixture
+def stroke():
+    """Chụm ở pts[0], kéo qua các điểm, nhả ở điểm cuối (gửi thẳng sự kiện vào Controller)."""
+    def _stroke(ctl, pts, t0=0.0):
+        ctl.dispatch(PointerEvent("down", pts[0], t0))
+        for i, p in enumerate(pts[1:], 1):
+            ctl.dispatch(PointerEvent("move", p, t0 + i * 0.033))
+        ctl.dispatch(PointerEvent("up", pts[-1], t0 + len(pts) * 0.033))
+    return _stroke
+
+
+@pytest.fixture
+def press():
+    """Chụm rồi nhả tại 1 điểm (bấm nút / chọn hình / bấm phím số)."""
+    def _press(ctl, pos, t=0.0):
+        ctl.dispatch(PointerEvent("down", pos, t))
+        ctl.dispatch(PointerEvent("up", pos, t + 0.1))
+    return _press
+
+
+@pytest.fixture
+def button():
+    """Tâm của nút trên thanh công cụ."""
+    def _button(ctl, name):
+        x0, y0, x1, y1 = ctl.toolbar.rects[name]
+        return ((x0 + x1) / 2, (y0 + y1) / 2)
+    return _button
