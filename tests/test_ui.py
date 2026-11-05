@@ -38,8 +38,7 @@ def test_drawing_functions_paint_on_frame(make_hand):
                {"kind": "rect", "pts": [(700, 100), (900, 100), (900, 250), (700, 250)], "raw": []},
                {"kind": "triangle", "pts": [(100, 700), (300, 700), (200, 550)], "raw": []},
                {"kind": "free", "pts": [(50, 600), (80, 620), (120, 610)], "raw": []}]
-    frame = draw_canvas(np.zeros((720, 1280, 3), np.uint8), strokes, [(10, 10, 0), (60, 60, 0)],
-                        scale=50, unit="cm")
+    frame = draw_canvas(np.zeros((720, 1280, 3), np.uint8), strokes, [(10, 10, 0), (60, 60, 0)])
     hand = make_hand(640, 360, ratio=0.1)
     draw_hand(frame, hand, FrameResult((640, 360), (640, 360), True, False), show_skeleton=True)
     draw_hand(frame, hand, FrameResult(None, None, True, True), show_skeleton=False)
@@ -91,3 +90,15 @@ def test_edit_panel_and_side_labels_paint(press):
     draw_edit_panel(frame, c.panel, "cm", (640, 400))
     x0, y0, x1, y1 = c.panel.rect
     assert frame[y0, x0:x1].any()                        # viền bảng
+
+
+def test_canvas_draws_no_measurements_until_asked():
+    from airgeo.ui.render import draw_measurements
+    circle = {"kind": "circle", "pts": [], "center": (600, 300), "radius": 80, "raw": []}
+    frame = draw_canvas(np.zeros((720, 1280, 3), np.uint8), [circle], None)
+    assert not frame[300, 600].any()                 # chưa vẽ tâm / bán kính
+    draw_measurements(frame, circle, show={"radius"})
+    assert frame[300, 600].any()
+    blank = np.zeros((720, 1280, 3), np.uint8)
+    draw_measurements(blank, circle, show=set())
+    assert not blank.any()

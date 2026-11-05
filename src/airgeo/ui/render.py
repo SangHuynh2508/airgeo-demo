@@ -57,27 +57,35 @@ def draw_shape(img, s, color=None, thickness=3):
     cv2.polylines(img, [pts], kind in ("triangle", "rect"), color, thickness, cv2.LINE_AA)
 
 
-def draw_measurements(img, s, scale=None, unit="cm"):
-    """Số đo theo đơn vị nếu đã có tỉ lệ (scale = px/cm), chưa có thì hiện px."""
+def draw_measurements(img, s, scale=None, unit="cm", show=()):
+    """Chỉ vẽ các số đo có trong `show` ("sides", "angles", "perimeter", "area", "radius").
+    Theo đơn vị nếu đã có tỉ lệ (scale = px/cm), chưa có thì hiện px."""
     m = measure(s)
-    if not m:
+    if not m or not show:
         return
 
     def length(px):
         return fmt_length(px, scale, unit)
 
+    totals = []                         # chu vi, diện tích: mỗi thứ 1 dòng để không đè lên nhau
+    if "perimeter" in show:
+        totals.append(f"{'C' if s['kind'] == 'circle' else 'P'}={length(m['perimeter'])}")
+    if "area" in show:
+        totals.append(f"S={fmt_area(m['area'], scale, unit)}")
     if s["kind"] == "circle":
         c, r = s["center"], s["radius"]
-        cv2.line(img, ip(c), ip((c[0] + r, c[1])), SHAPE_COLOR, 1, cv2.LINE_AA)
-        cv2.circle(img, ip(c), 3, SHAPE_COLOR, -1)
-        text(img, f"r={length(r)}", ip((c[0] + 8, c[1] - 6)))
-        text(img, f"C={length(m['perimeter'])}  S={fmt_area(m['area'], scale, unit)}",
-             ip((c[0] - r, c[1] + r + 20)))
+        if "radius" in show:
+            cv2.line(img, ip(c), ip((c[0] + r, c[1])), SHAPE_COLOR, 1, cv2.LINE_AA)
+            cv2.circle(img, ip(c), 3, SHAPE_COLOR, -1)
+            text(img, f"r={length(r)}", ip((c[0] + 8, c[1] - 6)))
+        for i, line in enumerate(totals):
+            text(img, line, ip((c[0] - r, c[1] + r + 20 + 22 * i)))
         return
     pts = s["pts"]
     if s["kind"] == "line":
-        mid = ((pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2)
-        text(img, length(m["sides"][0]), ip((mid[0] + 8, mid[1] - 8)))
+        if "sides" in show:
+            mid = ((pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2)
+            text(img, length(m["sides"][0]), ip((mid[0] + 8, mid[1] - 8)))
         return
     n = len(pts)
     cx, cy = sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n
@@ -85,24 +93,26 @@ def draw_measurements(img, s, scale=None, unit="cm"):
         a, b = pts[i], pts[(i + 1) % n]
         mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
         # Nhãn cạnh đẩy ra ngoài hình, nhãn góc đẩy vào trong (theo hướng trọng tâm)
-        text(img, length(m["sides"][i]), ip((mid[0] + (mid[0] - cx) * 0.15 - 12, mid[1] + (mid[1] - cy) * 0.15)))
-        v = pts[i]
-        text(img, f"{m['angles'][i]:.0f}deg", ip((v[0] + (cx - v[0]) * 0.2 - 20, v[1] + (cy - v[1]) * 0.2)),
-             0.45, ANGLE_COLOR)
-    text(img, f"P={length(m['perimeter'])}  S={fmt_area(m['area'], scale, unit)}", ip((cx - 70, cy)))
+        if "sides" in show:
+            text(img, length(m["sides"][i]),
+                 ip((mid[0] + (mid[0] - cx) * 0.15 - 12, mid[1] + (mid[1] - cy) * 0.15)))
+        if "angles" in show:
+            v = pts[i]
+            text(img, f"{m['angles'][i]:.0f}deg", ip((v[0] + (cx - v[0]) * 0.2 - 20, v[1] + (cy - v[1]) * 0.2)),
+                 0.45, ANGLE_COLOR)
+    for i, line in enumerate(totals):
+        text(img, line, ip((cx - 60, cy + 22 * i - 11 * (len(totals) - 1))))
 
 
-def draw_canvas(frame, shapes, cur, scale=None, unit="cm"):
-    """Vẽ các nét lên lớp canvas đen, trộn lên khung hình, rồi ghi số đo (chữ rõ, không bị làm mờ)."""
+def draw_canvas(frame, shapes, cur):
+    """Vẽ các nét lên lớp canvas đen rồi trộn lên khung hình. Số đo chỉ vẽ khi được yêu cầu
+    (cột "Tinh:" của công cụ Chọn, xem draw_tool_overlay)."""
     canvas = np.zeros_like(frame)
     for s in shapes:
         draw_shape(canvas, s)
     if cur and len(cur) >= 2:
         cv2.polylines(canvas, [np.array([ip(p) for p in cur], dtype=np.int32)], False, FREE_COLOR, 3, cv2.LINE_AA)
-    frame = cv2.addWeighted(frame, 0.6, canvas, 1, 0)
-    for s in shapes:
-        draw_measurements(frame, s, scale, unit)
-    return frame
+    return cv2.addWeighted(frame, 0.6, canvas, 1, 0)
 
 
 def draw_trails(img, raw_trail, filt_trail):
@@ -127,6 +137,7 @@ def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
 
 SELECT_COLOR = (255, 200, 0)     # xanh dương nhạt: hình đang chọn
 ERASE_COLOR = (0, 0, 255)        # đỏ: hình sắp bị xóa
+MEASURE_LABELS = {"sides": "Canh", "angles": "Goc", "perimeter": "Chu vi", "area": "Dien tich", "radius": "Ban kinh"}
 
 
 def draw_selection(img, s):
@@ -150,5 +161,13 @@ def draw_tool_overlay(img, ctl):
         return
     if ctl.tool == "select":
         draw_selection(img, shape)
+        draw_measurements(img, shape, ctl.board.scale, ctl.board.unit, tool.show)
+        menu = tool.menu(shape)
+        if menu:
+            x0, y0 = menu[0][1][:2]
+            text(img, "Tinh:", (int(x0), int(y0) - 10), 0.6)
+        for k, rect in menu:
+            label = "Do dai" if shape["kind"] == "line" else MEASURE_LABELS[k]
+            draw_button(img, rect, label, on=k in tool.show)
     else:
         draw_shape(img, shape, ERASE_COLOR, 6)

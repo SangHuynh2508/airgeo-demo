@@ -61,3 +61,48 @@ def test_pinch_near_middle_of_selected_line_grabs_it_not_label(press):
     press(c, (200, 300))
     press(c, (200, 310))                          # 10 px cạnh trung điểm: vẫn là cầm đoạn thẳng
     assert not c.panel.is_open and c.tools["select"].selected == 1
+
+
+TRI = {"kind": "triangle", "pts": [(490.0, 450.0), (790.0, 450.0), (640.0, 250.0)], "raw": [],
+       "id": 1, "locked": False}
+
+
+def _center(r):
+    return ((r[0] + r[2]) / 2, (r[1] + r[3]) / 2)
+
+
+def test_measure_menu_depends_on_kind():
+    from airgeo.tools.select import SelectTool
+    tool = SelectTool(Config(), 1280)
+    keys = lambda kind, **extra: [k for k, _ in tool.menu({"kind": kind, "pts": [], **extra})]  # noqa: E731
+    assert keys("triangle") == ["sides", "angles", "perimeter", "area"] == keys("rect")
+    assert keys("circle") == ["radius", "perimeter", "area"]
+    assert keys("line") == ["sides"] and keys("free") == []
+    assert all(1280 - 170 <= r[0] and r[2] <= 1280 and r[1] >= 70 for _, r in tool.menu(TRI))
+
+
+def test_measures_show_only_after_pressing_their_button(press):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append(dict(TRI))
+    c.do("select")
+    sel = c.tools["select"]
+    press(c, (640, 450))                          # chọn tam giác: chưa tính gì
+    assert sel.selected == 1 and sel.show == set()
+    angles = dict(sel.menu(c.board.shapes[0]))["angles"]
+    press(c, _center(angles))
+    assert sel.show == {"angles"} and sel.selected == 1
+    press(c, _center(angles))                     # bấm lần nữa: ẩn
+    assert sel.show == set()
+
+
+def test_changing_selection_clears_measures(press, stroke):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append(dict(TRI))
+    c.do("select")
+    sel = c.tools["select"]
+    press(c, (640, 450))
+    press(c, _center(dict(sel.menu(c.board.shapes[0]))["area"]))
+    stroke(c, [(640, 450), (660, 470), (680, 490)])   # kéo chính hình đó: vẫn giữ
+    assert sel.show == {"area"}
+    press(c, (100, 650))                          # bấm chỗ trống: bỏ chọn, tắt hết
+    assert sel.selected is None and sel.show == set()

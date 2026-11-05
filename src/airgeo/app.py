@@ -64,7 +64,7 @@ def run(config: Config):
             logger.log(**pf.csv_row(hand, t, res, board.smart))
 
             # ---- Vẽ ----
-            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur, board.scale, board.unit)
+            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur)
             draw_tool_overlay(frame, ctl)
             if compare:
                 draw_trails(frame, raw_trail, filt_trail)

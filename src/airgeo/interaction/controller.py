@@ -21,7 +21,7 @@ class Controller:
         self.toolbar = Toolbar(width, config)
         self.panel = EditPanel(config, width, height)
         self.bounds = (0, config.toolbar_height, width, height)   # vùng vẽ, dưới thanh nút
-        self.tools = {"draw": DrawTool(), "select": SelectTool(config), "erase": EraseTool(config)}
+        self.tools = {"draw": DrawTool(), "select": SelectTool(config, width), "erase": EraseTool(config)}
         self.tool = "draw"
         self._owner = None          # ai nhận lần chụm hiện tại: "panel" | "toolbar" | "tool"
 
