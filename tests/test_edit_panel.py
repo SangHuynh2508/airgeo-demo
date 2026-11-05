@@ -166,3 +166,16 @@ def test_panel_fits_small_camera_frame():
     assert 0 <= x0 and x1 <= 640 and 70 <= y0 and y1 <= 480
     for kx0, ky0, kx1, ky1 in [*p.key_rects.values(), p.ok_rect, p.cancel_rect]:
         assert x0 <= kx0 and kx1 <= x1 and y0 <= ky0 and ky1 <= y1
+
+
+def test_first_scale_shrinks_until_shape_fits_screen():
+    board = Board()
+    board.shapes.append({"kind": "rect", "pts": [(440.0, 300.0), (840.0, 300.0), (840.0, 500.0), (440.0, 500.0)],
+                         "raw": [], "id": 1, "locked": False})        # dai 400 px, rong 200 px
+    p = EditPanel(Config(), 1280, 720)
+    p.open(board.shapes[0], "dai", board)
+    _fill(p, {"dai": "5", "rong": "9"})            # giữ dai 400 px -> rong 720 px, vượt màn hình
+    assert p.submit(board, BOUNDS), p.error
+    side = polygon_metrics(board.shapes[0]["pts"])["sides"]
+    assert side[1] / side[0] == pytest.approx(9 / 5) and side[0] / board.scale == pytest.approx(5)
+    assert all(70 <= y <= 720 for _, y in board.shapes[0]["pts"])

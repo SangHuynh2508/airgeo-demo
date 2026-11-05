@@ -4,9 +4,10 @@ Bảng có đủ các ô của hình (tam giác AB BC CA, chữ nhật dai rong,
 cả bộ số rồi dựng hình 1 lần (sửa lần lượt từng cạnh có thể kẹt ở bước giữa vì bất đẳng thức tam giác).
 
 Tỉ lệ: lần OK đầu tiên (hoặc khi bật "Dat lai ti le") lấy ô đầu tiên có giá trị làm chuẩn,
-scale = độ dài hiện tại của cạnh đó (px) / giá trị (cm) -> cạnh đó giữ nguyên kích thước.
+scale = độ dài hiện tại của cạnh đó (px) / giá trị (cm) -> cạnh đó giữ nguyên kích thước;
+nếu vậy mà hình tràn màn hình thì tỉ lệ tự thu nhỏ tới khi vừa.
 """
-from airgeo.geometry.construct import build, current_lengths, field_names
+from airgeo.geometry.construct import OUT_OF_SCREEN, build, current_lengths, field_names
 from airgeo.geometry.units import fmt_length, to_px, to_units
 
 KEYS = [["7", "8", "9"], ["4", "5", "6"], ["1", "2", "3"], [".", "0", "<-"]]
@@ -114,14 +115,23 @@ class EditPanel:
             self.error = "Chua nhap so nao"
             return False
         cur, unit = current_lengths(shape), board.unit
-        if scale is None:
+        new_scale = scale is None
+        if new_scale:
             first = next(f for f in self.fields if f in entered)
             scale = cur[first] / to_px(entered[first], unit, 1.0)
-        lengths = {f: to_px(entered[f], unit, scale) if f in entered else cur[f] for f in self.fields}
-        try:
-            new = build(shape, lengths, bounds, self.min_side, lambda px: fmt_length(px, scale, unit))
-        except ValueError as e:
-            self.error = str(e)
+        for _ in range(20):
+            lengths = {f: to_px(entered[f], unit, scale) if f in entered else cur[f] for f in self.fields}
+            try:
+                new = build(shape, lengths, bounds, self.min_side, lambda px: fmt_length(px, scale, unit))
+                break
+            except ValueError as e:
+                self.error = str(e)
+                # Đang chọn tỉ lệ mới mà hình tràn màn hình (vd. dai 5 rong 9 trên hình đang dẹt):
+                # thu nhỏ tỉ lệ tới khi vừa. Tỉ lệ đã đặt thì không tự đổi, báo lỗi để người dùng sửa số.
+                if not (new_scale and self.error == OUT_OF_SCREEN):
+                    return False
+                scale *= 0.8
+        else:
             return False
         board.apply_edit(self.shape_id, new, scale)
         self.close()
