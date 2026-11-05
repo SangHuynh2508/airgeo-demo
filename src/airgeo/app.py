@@ -1,4 +1,4 @@
-"""Vòng lặp chính: camera -> theo dõi tay -> DrawingSession -> vẽ -> phím tắt.
+"""Vòng lặp chính: camera -> theo dõi tay -> chụm + lọc -> sự kiện con trỏ -> Controller -> vẽ -> phím tắt.
 
 FPS làm mượt bằng EMA dựa trên paint.py của AI-Virtual-Painter (MIT, Sagnik Barman):
 https://github.com/hanessn1/AI-Virtual-Painter
@@ -9,12 +9,15 @@ from collections import deque
 import cv2
 
 from airgeo.config import Config
+from airgeo.interaction.controller import Controller
+from airgeo.interaction.pointer import PointerTracker
+from airgeo.pinch_filter import PinchFilter
 from airgeo.recording.csv_logger import CsvLogger
-from airgeo.session import DrawingSession
 from airgeo.tracking.camera import open_camera
 from airgeo.tracking.hand_tracker import HandTracker
 from airgeo.ui.hud import draw_help, draw_hud, draw_status, hud_lines
 from airgeo.ui.render import draw_canvas, draw_hand, draw_trails
+from airgeo.ui.toolbar import draw_toolbar
 
 WIN = "AirGeo"
 FILTER_KEYS = {ord("0"): "none", ord("1"): "moving_avg", ord("2"): "one_euro"}
@@ -26,7 +29,7 @@ def run(config: Config):
     except RuntimeError as e:
         raise SystemExit(str(e))
     tracker = HandTracker(model_complexity=config.model_complexity)
-    session = DrawingSession(config)
+    pf, pointer, ctl = PinchFilter(config), PointerTracker(), None
     logger = CsvLogger(config.data_dir)
 
     compare, show_help, show_skeleton = False, True, True
@@ -44,16 +47,22 @@ def run(config: Config):
                 print("Camera ngung gui hinh (dang bi ung dung khac dung?) -> thoat")
                 break
             frame = cv2.flip(frame, 1)  # lật gương cho tự nhiên
+            if ctl is None:             # bố cục thanh nút theo kích thước khung hình thật của camera
+                h, w = frame.shape[:2]
+                ctl = Controller(config, w, h)
+            board = ctl.board
 
             hand = tracker.process(frame, t)
-            res = session.step(hand, t)
+            res = pf.step(hand, t)
             if res.raw is not None:
                 raw_trail.append(res.raw)
                 filt_trail.append(res.fpt)
-            logger.log(**session.csv_row(hand, t, res))
+            for ev in pointer.update(res, t):
+                ctl.dispatch(ev)
+            logger.log(**pf.csv_row(hand, t, res, board.smart))
 
             # ---- Vẽ ----
-            frame = draw_canvas(frame, session.strokes, session.cur)
+            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur, board.scale, board.unit)
             if compare:
                 draw_trails(frame, raw_trail, filt_trail)
             draw_hand(frame, hand, res, show_skeleton)
@@ -63,8 +72,10 @@ def run(config: Config):
                 fps = 1 / dt if fps == 0 else 0.9 * fps + 0.1 / dt
             n_frames += 1
 
-            draw_hud(frame, hud_lines(session, fps, compare, logger.session_id if logger.active else None),
-                     recording=logger.active)
+            draw_toolbar(frame, ctl, t, res.fpt)
+            draw_hud(frame, hud_lines(pf, board, ctl.tool, fps, compare,
+                                      logger.session_id if logger.active else None),
+                     recording=logger.active, top=config.toolbar_height)
             if show_help:
                 draw_help(frame)
             if t < status_until:
@@ -74,40 +85,38 @@ def run(config: Config):
             # ---- Phím tắt ----
             # pollKey không chờ; waitKey(1) trên Windows tốn ~15 ms/frame (độ phân giải timer) -> tụt FPS
             key = cv2.pollKey() & 0xFF
-            if key in (ord("q"), 27) or cv2.getWindowProperty(WIN, cv2.WND_PROP_VISIBLE) < 1:
+            if cv2.getWindowProperty(WIN, cv2.WND_PROP_VISIBLE) < 1:
+                break
+            if key == 255 or ctl.key(key, t):
+                pass    # không bấm phím, hoặc phím đã được Controller dùng (công cụ, Undo, Xoa het...)
+            elif key in (ord("q"), 27):
                 break
             elif key in FILTER_KEYS:
-                session.select_filter(FILTER_KEYS[key])
+                pf.select_filter(FILTER_KEYS[key])
             elif key == ord("["):
-                session.one_euro.set_params(mincutoff=max(0.01, session.one_euro.mincutoff / 1.25))
+                pf.one_euro.set_params(mincutoff=max(0.01, pf.one_euro.mincutoff / 1.25))
             elif key == ord("]"):
-                session.one_euro.set_params(mincutoff=session.one_euro.mincutoff * 1.25)
+                pf.one_euro.set_params(mincutoff=pf.one_euro.mincutoff * 1.25)
             elif key == ord(";"):
-                session.one_euro.set_params(beta=max(1e-4, session.one_euro.beta / 1.5))
+                pf.one_euro.set_params(beta=max(1e-4, pf.one_euro.beta / 1.5))
             elif key == ord("'"):
-                session.one_euro.set_params(beta=session.one_euro.beta * 1.5)
+                pf.one_euro.set_params(beta=pf.one_euro.beta * 1.5)
             elif key == ord("p"):
-                session.pinch.toggle_mode()
+                pf.pinch.toggle_mode()
             elif key == ord("l"):
                 show_skeleton = not show_skeleton
             elif key == ord(","):
-                session.pinch.shift(-0.02)
+                pf.pinch.shift(-0.02)
             elif key == ord("."):
-                session.pinch.shift(0.02)
+                pf.pinch.shift(0.02)
             elif key == ord("-"):
-                session.moving_avg.set_n(session.moving_avg.n - 1)
+                pf.moving_avg.set_n(pf.moving_avg.n - 1)
             elif key == ord("="):
-                session.moving_avg.set_n(session.moving_avg.n + 1)
-            elif key == ord("s"):
-                session.toggle_smart()
+                pf.moving_avg.set_n(pf.moving_avg.n + 1)
             elif key == ord("m"):
                 compare = not compare
             elif key == ord("h"):
                 show_help = not show_help
-            elif key == ord("u"):
-                session.undo()
-            elif key == ord("c"):
-                session.clear()
             elif key == ord("r"):
                 if logger.active:
                     logger.stop()
