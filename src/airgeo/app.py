@@ -40,6 +40,8 @@ def run(config: Config):
             ok, frame = cap.read()
             t = time.perf_counter()   # timestamp thật của frame, không giả định FPS cố định
             if not ok:
+                # Ví dụ webcam đang bị Teams/OBS giữ: MSMF báo mở được nhưng không có hình
+                print("Camera ngung gui hinh (dang bi ung dung khac dung?) -> thoat")
                 break
             frame = cv2.flip(frame, 1)  # lật gương cho tự nhiên
 

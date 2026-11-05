@@ -14,7 +14,8 @@ import math
 import cv2
 import numpy as np
 
-MIN_LENGTH = 60         # nét ngắn hơn (px) coi như chấm/nhiễu do chụm chập chờn, giữ nguyên
+MIN_CIRCULARITY = 0.1   # nét kín có độ tròn thấp hơn coi như không bao diện tích
+MIN_LENGTH = 60        # nét ngắn hơn (px) coi như chấm/nhiễu do chụm chập chờn, giữ nguyên
 LINE_STRAIGHTNESS = 0.90  # khoảng cách 2 đầu mút / độ dài nét, lớn hơn -> đoạn thẳng
 CLOSED_GAP = 0.20       # khoảng hở 2 đầu mút / độ dài nét, nhỏ hơn -> nét kín
 APPROX_EPS = 0.04       # epsilon của approxPolyDP, tính theo chu vi
@@ -50,6 +51,11 @@ def recognize(points):
     approx = cv2.approxPolyDP(cnt, APPROX_EPS * perim, True).reshape(-1, 2)
     v = len(approx)
     info.update(tron=round(circularity, 2), dinh=v)
+
+    # Nét quay lại đúng đường cũ: "kín" nhưng gần như không bao diện tích -> không phải hình
+    # (chữ nhật dài 20:1 vẫn có tròn ~0.14)
+    if circularity < MIN_CIRCULARITY:
+        return free
 
     if v == 3:
         return {"kind": "triangle", "pts": [tuple(p) for p in approx], "info": info}

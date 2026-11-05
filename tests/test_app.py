@@ -12,7 +12,7 @@ def test_run_exits_with_message_when_camera_missing(monkeypatch):
         app.run(Config())
 
 
-def test_run_stops_cleanly_when_camera_stops_sending_frames(monkeypatch, tmp_path):
+def test_run_stops_cleanly_when_camera_stops_sending_frames(monkeypatch, tmp_path, capsys):
     class DeadCap:
         released = False
 
@@ -37,3 +37,4 @@ def test_run_stops_cleanly_when_camera_stops_sending_frames(monkeypatch, tmp_pat
     monkeypatch.setattr(app.cv2, "destroyAllWindows", lambda: None)
     app.run(Config(data_dir=str(tmp_path)))
     assert DeadCap.released and FakeTracker.closed
+    assert "Camera ngung gui hinh" in capsys.readouterr().out   # không thoát im lặng

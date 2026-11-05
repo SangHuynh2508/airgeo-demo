@@ -55,3 +55,13 @@ def test_degenerate_strokes_are_free():
     assert recognize([(50, 50, i / 30) for i in range(20)])["kind"] == "free"   # mọi điểm trùng nhau
     assert recognize([(0, 0, 0), (100, 0, 0.03)])["kind"] == "free"            # quá ít điểm
     assert recognize([])["kind"] == "free"
+
+
+def test_doubled_back_stroke_without_area_is_free():
+    # Đi tới rồi quay lại đúng đường cũ: nét "kín" nhưng không bao diện tích -> không phải hình chữ nhật
+    pts = [(100, 300), (400, 300), (250, 50), (400, 300), (100, 300)]
+    xy = []
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        xy += [(ax + (bx - ax) * k / 20, ay + (by - ay) * k / 20) for k in range(20)]
+    xy.append(pts[-1])
+    assert recognize([(x, y, i / 30) for i, (x, y) in enumerate(xy)])["kind"] == "free"
