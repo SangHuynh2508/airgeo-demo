@@ -13,7 +13,7 @@ from collections import deque
 import cv2
 import numpy as np
 
-from filters import MovingAverage, NoFilter, OneEuro
+from airgeo.filters import MovingAverage, NoFilter, OneEuro
 from gesture import PinchDetector
 from logger import CsvLogger
 from airgeo.geometry.measure import measure
