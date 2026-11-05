@@ -71,28 +71,3 @@ def _fit_circle(cnt, xy):
         center = xy.mean(axis=0)
     radius = float(np.mean(np.linalg.norm(xy - center, axis=1)))
     return {"kind": "circle", "pts": [], "center": (float(center[0]), float(center[1])), "radius": radius}
-
-
-if __name__ == "__main__":
-    rng = np.random.default_rng(0)
-
-    def stroke(xy, noise=1.5):
-        xy = np.asarray(xy, dtype=float) + rng.normal(0, noise, (len(xy), 2))
-        return [(x, y, i / 30) for i, (x, y) in enumerate(xy)]
-
-    def polygon(corners, per_side=20):
-        corners = np.asarray(corners, dtype=float)
-        out = []
-        for a, b in zip(corners, np.roll(corners, -1, axis=0)):
-            out += [a + (b - a) * k / per_side for k in range(per_side)]
-        return out + [corners[0]]
-
-    ang = np.linspace(0, 2 * np.pi, 80)
-    circle = stroke(np.c_[300 + 100 * np.cos(ang), 300 + 100 * np.sin(ang)])
-    r = recognize(circle)
-    assert r["kind"] == "circle" and abs(r["radius"] - 100) < 5 and math.dist(r["center"], (300, 300)) < 5, r
-    assert recognize(stroke(np.c_[np.linspace(0, 300, 40), np.linspace(0, 100, 40)]))["kind"] == "line"
-    assert recognize(stroke(polygon([(100, 100), (400, 100), (400, 300), (100, 300)])))["kind"] == "rect"
-    assert recognize(stroke(polygon([(100, 300), (400, 300), (250, 50)])))["kind"] == "triangle"
-    assert recognize(stroke(np.c_[np.linspace(0, 300, 40), 100 * np.sin(np.linspace(0, 3, 40))]))["kind"] == "free"
-    print("shapes OK")

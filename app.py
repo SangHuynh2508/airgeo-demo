@@ -16,8 +16,8 @@ import numpy as np
 from filters import MovingAverage, NoFilter, OneEuro
 from gesture import PinchDetector
 from logger import CsvLogger
-from measure import measure
-from shapes import recognize
+from airgeo.geometry.measure import measure
+from airgeo.geometry.recognize import recognize
 from tracker import CONNECTIONS, HandTracker
 
 WIN = "AirGeo demo"
