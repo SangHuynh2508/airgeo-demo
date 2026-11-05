@@ -14,6 +14,9 @@ class Config:
     pinch_off: float = 0.35
     pinch_grace: float = 0.2           # giây giữ nét khi mất tay / tỉ lệ nhảy vọt
     pinch_mode: str = "2d"             # "2d" hoặc "3d" (phím P)
+    gesture: str = "two_finger"        # cử chỉ bấm: "two_finger" (trỏ + giữa áp sát) hoặc "pinch" (phím K)
+    two_finger_on: float = 0.25        # ngưỡng cử chỉ 2 ngón: khoảng cách đầu ngón 8-12 / lòng bàn tay
+    two_finger_off: float = 0.40
     # Bộ lọc
     ma_window: int = 5
     one_euro_mincutoff: float = 1.0

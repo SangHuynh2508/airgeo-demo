@@ -6,9 +6,10 @@ import numpy as np
 from airgeo.ui.render import text
 
 TOOL_NAMES = {"draw": "Ve", "select": "Chon", "erase": "Xoa"}
+GESTURE_NAMES = {"two_finger": "2 ngon", "pinch": "chum"}
 HELP = [
-    "Chum vao nut o thanh tren de bam | 0/1/2: loc  [ ]: mincutoff  ; ': beta  - =: MA n  , .: nguong chum",
-    "V/G/X: Ve/Chon/Xoa  N: don vi  S: Smart  U: undo  C: xoa het  M: so sanh  P: 2D/3D  L: xuong  R: CSV  H: an  Q: thoat",
+    "Bam vao nut o thanh tren (ap 2 ngon / chum) | 0/1/2: loc  [ ]: mincutoff  ; ': beta  - =: MA n  , .: nguong chum",
+    "K: chum/2 ngon  V/G/X: Ve/Chon/Xoa  N: don vi  S: Smart  U: undo  C: xoa het  M: so sanh  P: 2D/3D  L: xuong  R: CSV  H: an  Q: thoat",
 ]
 
 
@@ -25,7 +26,7 @@ def hud_lines(pf, board, tool, fps, compare, rec_session_id):
         f"1euro: {pf.one_euro.describe()}  MA: {pf.moving_avg.describe()}",
         f"Che do: {'SMART SHAPE' if board.smart else 've tu do'}" + ("  | so sanh" if compare else ""),
         f"Chum: {state}  ratio {ratio}",
-        f"Do theo: {pinch.mode.upper()}  on<{pinch.on_ratio:.2f} off>{pinch.off_ratio:.2f}",
+        f"Bam: {GESTURE_NAMES[pinch.gesture]}  Do theo: {pinch.mode.upper()}  on<{pinch.on_ratio:.2f} off>{pinch.off_ratio:.2f}",
     ]
     if board.smart and board.last_info:
         lines.append(f"Net cuoi: {board.last_info}")

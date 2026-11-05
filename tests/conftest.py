@@ -18,6 +18,26 @@ def make_hand():
     return _hand
 
 
+def _two_finger(x=320.0, y=240.0, ratio=0.1, fist=False, t=0.0):
+    """Bàn tay giả cho cử chỉ 2 ngón: đầu ngón trỏ (8) ở (x, y), đầu ngón giữa (12) cách sang phải
+    ratio × lòng bàn tay (100 px). fist=True: 2 ngón gập (đầu ngón gần cổ tay hơn khớp giữa ngón)."""
+    d = ratio * 100
+    pts = [(x, y + 60)] * 21
+    pts[0], pts[9] = (x, y + 150), (x, y + 50)
+    if fist:
+        pts[8], pts[12], pts[6], pts[10] = (x, y + 100), (x + d, y + 100), (x, y + 70), (x + d, y + 70)
+    else:
+        pts[8], pts[12], pts[6], pts[10] = (x, y), (x + d, y), (x, y + 30), (x + d, y + 30)
+    return {"t": t, "p4": pts[4], "p8": pts[8], "pts": pts,
+            "w0": (0.0, 0.0, 0.0), "w9": (0.0, 0.1, 0.0), "w4": (0.0, 0.05, 0.0),
+            "w8": (0.0, 0.0, 0.0), "w12": (ratio * 0.1, 0.0, 0.0)}
+
+
+@pytest.fixture
+def make_two_finger():
+    return _two_finger
+
+
 from airgeo.interaction.pointer import PointerEvent  # noqa: E402
 
 

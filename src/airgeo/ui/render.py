@@ -112,7 +112,7 @@ def draw_trails(img, raw_trail, filt_trail):
         cv2.polylines(img, [np.array([ip(p) for p in filt_trail], np.int32)], False, FILT_COLOR, 2, cv2.LINE_AA)
 
 
-def draw_hand(img, hand, res, show_skeleton):
+def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
     if hand and show_skeleton:
         for a, b in CONNECTIONS:
             cv2.line(img, ip(hand["pts"][a]), ip(hand["pts"][b]), SKELETON_COLOR, 1, cv2.LINE_AA)
@@ -122,7 +122,7 @@ def draw_hand(img, hand, res, show_skeleton):
     if res.fpt:
         cv2.circle(img, ip(res.fpt), 9, PINCH_COLOR if res.pinched else FILT_COLOR, 2)
     elif res.holding and hand:
-        cv2.circle(img, ip(draw_point(hand)), 9, HOLD_COLOR, 2)
+        cv2.circle(img, ip(draw_point(hand, gesture)), 9, HOLD_COLOR, 2)
 
 
 SELECT_COLOR = (255, 200, 0)     # xanh dương nhạt: hình đang chọn

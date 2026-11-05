@@ -31,3 +31,9 @@ def test_interaction_defaults():
     c = Config()
     assert (c.toolbar_height, c.key_size, c.hit_radius, c.label_radius) == (70, 80, 15, 25)
     assert (c.drag_threshold, c.min_side_px, c.history_limit, c.confirm_window) == (10, 10, 50, 2.0)
+
+
+def test_gesture_default_and_cli():
+    c = Config()
+    assert (c.gesture, c.two_finger_on, c.two_finger_off) == ("two_finger", 0.25, 0.40)
+    assert parse_args(["--gesture", "pinch"]).gesture == "pinch"

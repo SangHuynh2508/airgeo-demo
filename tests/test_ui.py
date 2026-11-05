@@ -17,7 +17,7 @@ def test_hud_lines_show_tool_scale_filter_and_pinch_state():
     assert "Loc: one_euro (mincutoff=1.000 beta=0.0070)" in lines
     assert "Che do: ve tu do  | so sanh" in lines
     assert "Chum: off  ratio -" in lines
-    assert "Do theo: 2D  on<0.20 off>0.35" in lines
+    assert "Bam: 2 ngon  Do theo: 2D  on<0.25 off>0.40" in lines
     assert not any(line.startswith("REC") for line in lines)
     board.scale = 50
     assert "Cong cu: Chon  Ti le: 50.0 px/cm" in hud_lines(pf, board, "select", 30, False, None)

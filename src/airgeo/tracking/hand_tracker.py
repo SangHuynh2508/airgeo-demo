@@ -50,7 +50,7 @@ class HandTracker:
 
         pts = [px(i) for i in range(21)]
         return {"t": t, "p4": pts[4], "p8": pts[8], "pts": pts,
-                "w0": world(0), "w4": world(4), "w8": world(8), "w9": world(9)}
+                "w0": world(0), "w4": world(4), "w8": world(8), "w9": world(9), "w12": world(12)}
 
     def close(self):
         self.hands.close()

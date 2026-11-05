@@ -20,7 +20,8 @@ class FrameResult:
 
 class PinchFilter:
     def __init__(self, config: Config):
-        self.pinch = PinchDetector(config.pinch_on, config.pinch_off, config.pinch_grace, config.pinch_mode)
+        self.pinch = PinchDetector(config.pinch_on, config.pinch_off, config.pinch_grace, config.pinch_mode,
+                                   config.gesture, (config.two_finger_on, config.two_finger_off))
         self.moving_avg = MovingAverage(config.ma_window)
         self.one_euro = OneEuro(config.one_euro_mincutoff, config.one_euro_beta, config.one_euro_dcutoff)
         self.filters = {"none": NoFilter(), "moving_avg": self.moving_avg, "one_euro": self.one_euro}
@@ -30,11 +31,16 @@ class PinchFilter:
         pinched = self.pinch.update(hand, t)
         raw = fpt = None
         if hand and not self.pinch.holding:
-            raw = draw_point(hand)
+            raw = draw_point(hand, self.pinch.gesture)
             fpt = self.flt.filter(*raw, t)
         elif not hand and not pinched:
             self.flt.reset()  # tránh điểm lọc bị "kéo" từ vị trí cũ khi tay xuất hiện lại
         return FrameResult(raw, fpt, pinched, self.pinch.holding)
+
+    def toggle_gesture(self):
+        """Phím K: đổi cử chỉ bấm. Điểm con trỏ đổi chỗ (trung điểm 4-8 <-> đầu ngón trỏ) nên reset bộ lọc."""
+        self.pinch.toggle_gesture()
+        self.flt.reset()
 
     def select_filter(self, name):
         self.flt = self.filters[name]

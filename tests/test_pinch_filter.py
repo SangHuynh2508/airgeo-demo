@@ -3,7 +3,7 @@ from airgeo.pinch_filter import PinchFilter
 
 
 def _pf():
-    pf = PinchFilter(Config())
+    pf = PinchFilter(Config(gesture="pinch"))
     pf.select_filter("none")          # không lọc -> dễ kiểm tra tọa độ
     return pf
 
@@ -22,14 +22,14 @@ def test_holding_frame_has_no_point(make_hand):
 
 
 def test_hand_lost_while_released_resets_filter(make_hand):
-    pf = PinchFilter(Config())                              # 1€ mặc định
+    pf = PinchFilter(Config(gesture="pinch"))              # 1€ mặc định
     pf.step(make_hand(100, 100, ratio=0.6), 0.0)
     pf.step(None, 0.033)
     assert pf.step(make_hand(600, 400, ratio=0.6), 0.066).fpt == (600, 400)
 
 
 def test_select_filter_switches():
-    pf = PinchFilter(Config())
+    pf = PinchFilter(Config(gesture="pinch"))
     assert pf.flt.name == "one_euro"
     pf.select_filter("moving_avg")
     assert pf.flt is pf.moving_avg
@@ -45,3 +45,12 @@ def test_csv_row_keeps_raw_landmarks_and_mode(make_hand):
     assert row["pinch"] == 1 and row["filter_name"] == "none" and row["mode"] == "free"
     empty = pf.csv_row(None, 1.6, pf.step(None, 1.6), smart=True)
     assert empty["x8_raw"] is None and empty["x_filt"] is None and empty["mode"] == "smart"
+
+
+def test_toggle_gesture_switches_cursor_point(make_hand):
+    pf = PinchFilter(Config())
+    pf.select_filter("none")
+    assert pf.pinch.gesture == "two_finger"
+    pf.toggle_gesture()
+    assert pf.pinch.gesture == "pinch"
+    assert pf.step(make_hand(100, 200, ratio=0.6), 0.0).fpt == (100, 200)   # trung điểm 4-8

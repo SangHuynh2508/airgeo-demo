@@ -9,7 +9,7 @@ from airgeo.tools.draw import DrawTool
 
 def _pipeline(smart=False):
     """Bàn tay giả -> PinchFilter (không lọc) -> PointerTracker -> DrawTool -> Board."""
-    pf = PinchFilter(Config())
+    pf = PinchFilter(Config(gesture="pinch"))
     pf.select_filter("none")
     ctl = SimpleNamespace(board=Board())
     ctl.board.set_smart(smart)

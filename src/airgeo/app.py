@@ -68,7 +68,7 @@ def run(config: Config):
             draw_tool_overlay(frame, ctl)
             if compare:
                 draw_trails(frame, raw_trail, filt_trail)
-            draw_hand(frame, hand, res, show_skeleton)
+            draw_hand(frame, hand, res, show_skeleton, pf.pinch.gesture)
 
             dt, t_prev = t - t_prev, t
             if dt > 0:
@@ -106,6 +106,8 @@ def run(config: Config):
                 pf.one_euro.set_params(beta=max(1e-4, pf.one_euro.beta / 1.5))
             elif key == ord("'"):
                 pf.one_euro.set_params(beta=pf.one_euro.beta * 1.5)
+            elif key == ord("k"):
+                pf.toggle_gesture()
             elif key == ord("p"):
                 pf.pinch.toggle_mode()
             elif key == ord("l"):
