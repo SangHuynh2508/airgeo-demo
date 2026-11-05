@@ -15,6 +15,7 @@ from airgeo.pinch_filter import PinchFilter
 from airgeo.recording.csv_logger import CsvLogger
 from airgeo.tracking.camera import open_camera
 from airgeo.tracking.hand_tracker import HandTracker
+from airgeo.ui.edit_panel import draw_edit_panel
 from airgeo.ui.hud import draw_help, draw_hud, draw_status, hud_lines
 from airgeo.ui.render import draw_canvas, draw_hand, draw_tool_overlay, draw_trails
 from airgeo.ui.toolbar import draw_toolbar
@@ -77,6 +78,8 @@ def run(config: Config):
             draw_hud(frame, hud_lines(pf, board, ctl.tool, fps, compare,
                                       logger.session_id if logger.active else None),
                      recording=logger.active, top=config.toolbar_height)
+            if ctl.panel.is_open:
+                draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
             if show_help:
                 draw_help(frame)
             if t < status_until:

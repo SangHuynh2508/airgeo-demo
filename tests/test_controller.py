@@ -52,3 +52,51 @@ def test_key_c_clears_without_confirmation(stroke):
     c = _ctl()
     stroke(c, LINE)
     assert c.key(ord("c"), 0) and c.board.shapes == []
+
+
+import pytest  # noqa: E402
+
+from airgeo.geometry.construct import label_anchors  # noqa: E402
+from airgeo.geometry.measure import polygon_metrics  # noqa: E402
+
+
+def _ctl_with_selected_triangle(press):
+    c = _ctl()
+    c.board.shapes.append({"kind": "triangle", "pts": [(490.0, 450.0), (790.0, 450.0), (640.0, 250.0)],
+                           "raw": [], "id": 1, "locked": False})
+    c.do("select")
+    press(c, (640, 450))                         # chụm trúng cạnh AB -> chọn tam giác
+    return c
+
+
+def test_pressing_side_label_opens_panel(press):
+    c = _ctl_with_selected_triangle(press)
+    press(c, label_anchors(c.board.shapes[0])["BC"])
+    assert c.panel.is_open and c.panel.focus == "BC"
+
+
+def test_open_panel_owns_pinches_and_keys(press, stroke):
+    c = _ctl_with_selected_triangle(press)
+    press(c, label_anchors(c.board.shapes[0])["AB"])
+    c.set_tool("draw")
+    stroke(c, [(50, 650), (100, 650), (150, 650)])      # bảng đang mở: chụm không vẽ
+    assert len(c.board.shapes) == 1
+    assert c.key(ord("0"), 0) and c.panel.values["AB"] == "0"
+    assert c.key(27, 0) and not c.panel.is_open          # Esc đóng bảng, không thoát app
+    assert not c.key(ord("0"), 0)                         # bảng đóng: phím 0 để app đổi bộ lọc
+
+
+def test_type_3_4_5_gives_right_triangle(press):
+    c = _ctl_with_selected_triangle(press)
+    press(c, label_anchors(c.board.shapes[0])["AB"])
+    for code in b"3\t4\t5\r":
+        c.key(code, 0)
+    assert not c.panel.is_open and c.board.scale == pytest.approx(100)
+    assert polygon_metrics(c.board.shapes[0]["pts"])["angles"][1] == pytest.approx(90)
+
+
+def test_clear_closes_panel(press):
+    c = _ctl_with_selected_triangle(press)
+    press(c, label_anchors(c.board.shapes[0])["AB"])
+    c.key(ord("c"), 0)
+    assert not c.panel.is_open and c.board.shapes == []

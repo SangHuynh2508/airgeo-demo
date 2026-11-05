@@ -74,3 +74,20 @@ def test_erase_overlay_paints_red(stroke):
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
     assert tuple(frame[300, 200]) == (0, 0, 255)
+
+
+def test_edit_panel_and_side_labels_paint(press):
+    from airgeo.ui.edit_panel import draw_edit_panel
+    from airgeo.ui.render import draw_tool_overlay
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append({"kind": "triangle", "pts": [(490.0, 450.0), (790.0, 450.0), (640.0, 250.0)],
+                           "raw": [], "id": 1, "locked": False})
+    c.do("select")
+    press(c, (640, 450))
+    c.panel.open(c.board.shapes[0], "AB", c.board)
+    c.panel.error = "AB khong hop le"
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    draw_edit_panel(frame, c.panel, "cm", (640, 400))
+    x0, y0, x1, y1 = c.panel.rect
+    assert frame[y0, x0:x1].any()                        # viền bảng

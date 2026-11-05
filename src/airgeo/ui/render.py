@@ -6,6 +6,7 @@ AI-Virtual-Painter (MIT, Sagnik Barman): https://github.com/hanessn1/AI-Virtual-
 import cv2
 import numpy as np
 
+from airgeo.geometry.construct import label_anchors
 from airgeo.geometry.measure import measure
 from airgeo.geometry.units import fmt_area, fmt_length
 from airgeo.gesture.pinch import draw_point
@@ -129,13 +130,15 @@ ERASE_COLOR = (0, 0, 255)        # đỏ: hình sắp bị xóa
 
 
 def draw_selection(img, s):
-    """Viền nổi bật hình đang chọn; tam giác ghi tên đỉnh A, B, C."""
+    """Viền nổi bật hình đang chọn; tam giác ghi tên đỉnh A, B, C; nhãn cạnh bấm được để sửa số đo."""
     draw_shape(img, s, SELECT_COLOR, 6)
     if s["kind"] == "triangle":
         pts = s["pts"]
         cx, cy = sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3
         for name, (x, y) in zip("ABC", pts):
             text(img, name, ip((x + (x - cx) * 0.15 - 6, y + (y - cy) * 0.15 + 6)), 0.7, SELECT_COLOR)
+    for f, (x, y) in label_anchors(s).items():
+        draw_button(img, (x - 28, y - 16, x + 28, y + 16), f, scale=0.55)
 
 
 def draw_tool_overlay(img, ctl):
