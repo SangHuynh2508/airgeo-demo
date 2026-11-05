@@ -89,7 +89,8 @@ class EditPanel:
     # ---- OK ----
     def submit(self, board, bounds):
         shape = board.get(self.shape_id)
-        if shape is None:               # hình đã bị xóa / Undo mất trong lúc bảng mở
+        if shape is None or shape["kind"] != self.kind:
+            # hình đã bị xóa / Undo mất, hoặc Smart nhận dạng lại thành loại khác trong lúc bảng mở
             self.close()
             return False
         scale = None if self.reset_scale else board.scale

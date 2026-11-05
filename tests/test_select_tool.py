@@ -51,3 +51,13 @@ def test_leaving_select_clears_selection(stroke, press):
     press(c, (200, 300))
     c.do("draw")
     assert c.tools["select"].selected is None
+
+
+def test_pinch_near_middle_of_selected_line_grabs_it_not_label(press):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)], "raw": [],
+                           "id": 1, "locked": False})
+    c.do("select")
+    press(c, (200, 300))
+    press(c, (200, 310))                          # 10 px cạnh trung điểm: vẫn là cầm đoạn thẳng
+    assert not c.panel.is_open and c.tools["select"].selected == 1

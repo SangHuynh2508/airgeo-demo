@@ -100,3 +100,13 @@ def test_clear_closes_panel(press):
     press(c, label_anchors(c.board.shapes[0])["AB"])
     c.key(ord("c"), 0)
     assert not c.panel.is_open and c.board.shapes == []
+
+
+def test_smart_toggle_under_open_panel_does_not_crash_on_ok(press):
+    c = _ctl_with_selected_triangle(press)
+    c.board.shapes[0]["raw"] = [(100 + 10 * i, 600, i / 30) for i in range(30)]   # nét gốc là đường thẳng
+    press(c, label_anchors(c.board.shapes[0])["AB"])
+    c.key(ord("s"), 0)                            # Smart nhận dạng lại: hình dưới bảng không còn là tam giác
+    for code in b"3\r":
+        c.key(code, 0)
+    assert not c.panel.is_open and c.board.scale is None
