@@ -114,3 +114,20 @@ def test_press_inside_triangle_grabs_and_drags_it(stroke):
     c.do("select")
     stroke(c, [(640, 380), (660, 380), (690, 400)])   # giữa tam giác, không chạm cạnh
     assert c.tools["select"].selected == 1 and c.board.shapes[0]["pts"][0] == (540.0, 470.0)
+
+
+def test_stray_press_while_moving_to_menu_keeps_selection(stroke, press):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append(dict(TRI))
+    c.do("select")
+    sel = c.tools["select"]
+    press(c, (640, 380))                                       # chọn tam giác -> cột "Tinh:" hiện
+    stroke(c, [(850, 400), (950, 300), (1100, 200)], t0=1.0)   # 2 ngón vô tình áp lúc đang di tay
+    assert sel.selected == 1
+    press(c, (900, 600), t=1.5)                                # chạm rồi nhả tại chỗ trống: vẫn bỏ chọn được
+    assert sel.selected is None
+    press(c, (640, 380), t=1.8)
+    assert sel.selected == 1
+    _, (x0, y0, x1, y1) = sel.menu(c.board.get(1))[0]
+    press(c, ((x0 + x1) / 2, (y0 + y1) / 2), t=2.0)
+    assert sel.show == {"sides"}

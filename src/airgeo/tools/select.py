@@ -26,6 +26,7 @@ class SelectTool:
         self._grab = None           # điểm bắt đầu chụm trên hình (None = lần chụm này không kéo gì)
         self._last = None
         self._dragging = False
+        self._clear_at = None       # điểm chạm vào chỗ trống: nhả tại đây thì bỏ chọn
 
     def menu(self, shape):
         """[(số đo, (x0, y0, x1, y1))] – các nút trong cột "Tinh:" cho loại hình này."""
@@ -63,12 +64,19 @@ class SelectTool:
                 self._grab = None
                 return
             shape = board.shape_at(ev.pos, self.hit_radius)
-            sid = shape["id"] if shape else None
-            if sid != self.selected:
-                self.show = set()   # số đo chỉ tính khi được yêu cầu, cho từng lần chọn
-            self.selected = sid
-            self._grab = ev.pos if shape else None
             self._dragging = False
+            if shape is None:
+                # Chỗ trống: chỉ bỏ chọn khi chạm rồi nhả tại chỗ. Lúc di tay tới cột "Tinh:", 2 ngón hay
+                # vô tình áp sát -> "bấm" giữa đường; tay đang di chuyển thì không tính là bỏ chọn.
+                self._grab, self._clear_at = None, ev.pos
+                return
+            if shape["id"] != self.selected:
+                self.show = set()   # số đo chỉ tính khi được yêu cầu, cho từng lần chọn
+            self.selected = shape["id"]
+            self._grab = ev.pos
+        elif ev.kind == "move" and self._clear_at is not None:
+            if math.dist(ev.pos, self._clear_at) > self.drag_threshold:
+                self._clear_at = None
         elif ev.kind == "move" and self._grab is not None:
             if not self._dragging:
                 if math.dist(ev.pos, self._grab) <= self.drag_threshold:
@@ -78,8 +86,10 @@ class SelectTool:
             board.translate(self.selected, ev.pos[0] - self._last[0], ev.pos[1] - self._last[1])
             self._last = ev.pos
         elif ev.kind == "up":
-            self._grab, self._dragging = None, False
+            if self._clear_at is not None:
+                self.selected, self.show = None, set()
+            self._grab, self._dragging, self._clear_at = None, False, None
 
     def end(self, ctl):
-        self.selected, self._grab, self._dragging = None, None, False
+        self.selected, self._grab, self._dragging, self._clear_at = None, None, False, None
         self.show = set()
