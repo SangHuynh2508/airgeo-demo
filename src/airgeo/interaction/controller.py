@@ -7,6 +7,7 @@ chụm ở nút rồi kéo xuống vùng vẽ cũng không tạo nét.
 from airgeo.document.board import Board
 from airgeo.interaction.toolbar import Toolbar
 from airgeo.tools.draw import DrawTool
+from airgeo.tools.erase import EraseTool
 from airgeo.tools.select import SelectTool
 
 KEY_ACTIONS = {ord("u"): "undo", ord("c"): "clear", ord("s"): "smart", ord("n"): "unit",
@@ -18,7 +19,7 @@ class Controller:
         self.board = Board(config.history_limit)
         self.toolbar = Toolbar(width, config)
         self.bounds = (0, config.toolbar_height, width, height)   # vùng vẽ, dưới thanh nút
-        self.tools = {"draw": DrawTool(), "select": SelectTool(config)}
+        self.tools = {"draw": DrawTool(), "select": SelectTool(config), "erase": EraseTool(config)}
         self.tool = "draw"
         self._owner = None          # ai nhận lần chụm hiện tại: "toolbar" | "tool"
 

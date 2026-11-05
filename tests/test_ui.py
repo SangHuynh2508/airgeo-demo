@@ -62,3 +62,15 @@ def test_selection_overlay_paints(stroke, press):
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
     assert frame[300, 200].any()
+
+
+def test_erase_overlay_paints_red(stroke):
+    from airgeo.interaction.pointer import PointerEvent
+    from airgeo.ui.render import draw_tool_overlay
+    c = Controller(Config(), 1280, 720)
+    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    c.do("erase")
+    c.dispatch(PointerEvent("hover", (200, 300), 1.0))
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    assert tuple(frame[300, 200]) == (0, 0, 255)
