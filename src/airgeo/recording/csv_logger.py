@@ -22,12 +22,20 @@ class CsvLogger:
 
     def start(self):
         os.makedirs(self.folder, exist_ok=True)
-        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = os.path.join(self.folder, f"session_{self.session_id}.csv")
+        base = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.session_id, n = base, 1
+        # Bật/tắt ghi 2 lần trong cùng 1 giây không được ghi đè file của phiên trước
+        while os.path.exists(self._path()):
+            n += 1
+            self.session_id = f"{base}_{n}"
+        path = self._path()
         self.file = open(path, "w", newline="", encoding="utf-8")
         self.writer = csv.writer(self.file)
         self.writer.writerow(COLUMNS)
         return path
+
+    def _path(self):
+        return os.path.join(self.folder, f"session_{self.session_id}.csv")
 
     def log(self, **row):
         """Thiếu cột nào (ví dụ không thấy tay) thì để trống."""

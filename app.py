@@ -15,7 +15,7 @@ import numpy as np
 
 from airgeo.filters import MovingAverage, NoFilter, OneEuro
 from airgeo.gesture.pinch import PinchDetector, draw_point
-from logger import CsvLogger
+from airgeo.recording.csv_logger import CsvLogger
 from airgeo.geometry.measure import measure
 from airgeo.geometry.recognize import recognize
 from tracker import CONNECTIONS, HandTracker
