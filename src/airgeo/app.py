@@ -51,6 +51,7 @@ def run(config: Config):
             if ctl is None:             # bố cục thanh nút theo kích thước khung hình thật của camera
                 h, w = frame.shape[:2]
                 ctl = Controller(config, w, h)
+                cv2.resizeWindow(WIN, w, h)   # WINDOW_NORMAL mở ra chỉ ~300x280 px; vẫn kéo giãn / phóng to được
             board = ctl.board
 
             hand = tracker.process(frame, t)
