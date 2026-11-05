@@ -16,7 +16,7 @@ from airgeo.recording.csv_logger import CsvLogger
 from airgeo.tracking.camera import open_camera
 from airgeo.tracking.hand_tracker import HandTracker
 from airgeo.ui.hud import draw_help, draw_hud, draw_status, hud_lines
-from airgeo.ui.render import draw_canvas, draw_hand, draw_trails
+from airgeo.ui.render import draw_canvas, draw_hand, draw_tool_overlay, draw_trails
 from airgeo.ui.toolbar import draw_toolbar
 
 WIN = "AirGeo"
@@ -63,6 +63,7 @@ def run(config: Config):
 
             # ---- Vẽ ----
             frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur, board.scale, board.unit)
+            draw_tool_overlay(frame, ctl)
             if compare:
                 draw_trails(frame, raw_trail, filt_trail)
             draw_hand(frame, hand, res, show_skeleton)

@@ -51,3 +51,14 @@ def test_drawing_functions_paint_on_frame(make_hand):
     assert frame[300, 680].any()                     # điểm trên đường tròn tâm (600, 300), r = 80
     x0, y0, x1, y1 = ctl.toolbar.rects["draw"]
     assert frame[35, int((x0 + x1) / 2) - 40].any()  # nút "Ve" đang bật được tô nền
+
+
+def test_selection_overlay_paints(stroke, press):
+    from airgeo.ui.render import draw_tool_overlay
+    c = Controller(Config(), 1280, 720)
+    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    c.do("select")
+    press(c, (200, 300))
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    assert frame[300, 200].any()

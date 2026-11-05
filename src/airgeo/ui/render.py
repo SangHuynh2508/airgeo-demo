@@ -122,3 +122,30 @@ def draw_hand(img, hand, res, show_skeleton):
         cv2.circle(img, ip(res.fpt), 9, PINCH_COLOR if res.pinched else FILT_COLOR, 2)
     elif res.holding and hand:
         cv2.circle(img, ip(draw_point(hand)), 9, HOLD_COLOR, 2)
+
+
+SELECT_COLOR = (255, 200, 0)     # xanh dương nhạt: hình đang chọn
+ERASE_COLOR = (0, 0, 255)        # đỏ: hình sắp bị xóa
+
+
+def draw_selection(img, s):
+    """Viền nổi bật hình đang chọn; tam giác ghi tên đỉnh A, B, C."""
+    draw_shape(img, s, SELECT_COLOR, 6)
+    if s["kind"] == "triangle":
+        pts = s["pts"]
+        cx, cy = sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3
+        for name, (x, y) in zip("ABC", pts):
+            text(img, name, ip((x + (x - cx) * 0.15 - 6, y + (y - cy) * 0.15 + 6)), 0.7, SELECT_COLOR)
+
+
+def draw_tool_overlay(img, ctl):
+    """Hình đang chọn (công cụ Chọn) hoặc hình dưới con trỏ sắp bị xóa (công cụ Xóa)."""
+    tool = ctl.tools[ctl.tool]
+    sid = getattr(tool, "selected", None) or getattr(tool, "hovered", None)
+    shape = ctl.board.get(sid) if sid else None
+    if shape is None:
+        return
+    if ctl.tool == "select":
+        draw_selection(img, shape)
+    else:
+        draw_shape(img, shape, ERASE_COLOR, 6)
