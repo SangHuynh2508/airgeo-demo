@@ -10,6 +10,20 @@ def _segment_distance(p, a, b):
     return math.hypot(px - (ax + u * dx), py - (ay + u * dy))
 
 
+def contains(pos, shape):
+    """Điểm nằm trong hình kín (tam giác, chữ nhật, tròn) – để bấm giữa hình cũng cầm được."""
+    if shape["kind"] == "circle":
+        return math.dist(pos, shape["center"]) <= shape["radius"]
+    if shape["kind"] not in ("triangle", "rect"):
+        return False
+    x, y = pos
+    pts, inside = shape["pts"], False
+    for (ax, ay), (bx, by) in zip(pts, pts[1:] + pts[:1]):   # đếm số cạnh tia ngang cắt qua
+        if (ay > y) != (by > y) and x < ax + (y - ay) * (bx - ax) / (by - ay):
+            inside = not inside
+    return inside
+
+
 def distance_to_shape(pos, shape):
     if shape["kind"] == "circle":
         return abs(math.dist(pos, shape["center"]) - shape["radius"])

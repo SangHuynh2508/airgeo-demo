@@ -3,7 +3,7 @@ from airgeo.pinch_filter import PinchFilter
 
 
 def _pf():
-    pf = PinchFilter(Config(gesture="pinch"))
+    pf = PinchFilter(Config())
     pf.select_filter("none")          # không lọc -> dễ kiểm tra tọa độ
     return pf
 
@@ -22,14 +22,14 @@ def test_holding_frame_has_no_point(make_hand):
 
 
 def test_hand_lost_while_released_resets_filter(make_hand):
-    pf = PinchFilter(Config(gesture="pinch"))              # 1€ mặc định
+    pf = PinchFilter(Config())              # 1€ mặc định
     pf.step(make_hand(100, 100, ratio=0.6), 0.0)
     pf.step(None, 0.033)
-    assert pf.step(make_hand(600, 400, ratio=0.6), 0.066).fpt == (600, 400)
+    assert pf.step(make_hand(600, 400, ratio=0.6), 0.066).fpt == (600, 370)   # đầu ngón trỏ
 
 
 def test_select_filter_switches():
-    pf = PinchFilter(Config(gesture="pinch"))
+    pf = PinchFilter(Config())
     assert pf.flt.name == "one_euro"
     pf.select_filter("moving_avg")
     assert pf.flt is pf.moving_avg
@@ -47,10 +47,24 @@ def test_csv_row_keeps_raw_landmarks_and_mode(make_hand):
     assert empty["x8_raw"] is None and empty["x_filt"] is None and empty["mode"] == "smart"
 
 
-def test_toggle_gesture_switches_cursor_point(make_hand):
-    pf = PinchFilter(Config())
-    pf.select_filter("none")
-    assert pf.pinch.gesture == "two_finger"
-    pf.toggle_gesture()
-    assert pf.pinch.gesture == "pinch"
-    assert pf.step(make_hand(100, 200, ratio=0.6), 0.0).fpt == (100, 200)   # trung điểm 4-8
+def test_hover_cursor_is_index_tip_and_pinch_draws_at_midpoint(make_hand):
+    pf = _pf()
+    assert pf.step(make_hand(100, 200, ratio=0.6), 0.0, want="pinch").fpt == (100, 170)   # p8
+    assert pf.step(make_hand(100, 200, ratio=0.1), 0.1, want="pinch").fpt == (100, 200)   # trung điểm 4-8
+
+
+def test_two_fingers_press_only_where_wanted_and_need_a_fresh_close(make_two_finger):
+    pf = _pf()
+    together, apart = make_two_finger(300, 200, ratio=0.1), make_two_finger(300, 200, ratio=0.6)
+    assert not pf.step(together, 0.0, want="pinch").pinched        # vùng vẽ: 2 ngón không vẽ
+    assert not pf.step(together, 0.1, want="two_finger").pinched   # đưa vào menu lúc 2 ngón đã áp: chưa bấm
+    pf.step(apart, 0.2, want="two_finger")
+    res = pf.step(together, 0.3, want="two_finger")
+    assert res.pinched and res.fpt == (300, 200) and pf.pinch.gesture == "two_finger"
+
+
+def test_gesture_is_kept_until_release(make_hand):
+    pf = _pf()
+    pf.step(make_hand(100, 200, ratio=0.1), 0.0, want="pinch")
+    res = pf.step(make_hand(100, 200, ratio=0.1), 0.03, want="two_finger")   # đang vẽ mà kéo vào thanh nút
+    assert res.pinched and pf.pinch.gesture == "pinch"

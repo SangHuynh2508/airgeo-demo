@@ -47,6 +47,13 @@ class Controller:
         elif owner == "tool":
             self.tools[self.tool].on_event(ev, self)
 
+    def gesture_for(self, pos):
+        """Cử chỉ bấm ở chỗ con trỏ: vẽ trong vùng vẽ bằng chụm ngón cái + trỏ; thanh nút, bảng nhập,
+        Chọn, Xóa bằng áp 2 ngón trỏ + giữa (với tới mép trên camera mà ngón cái không bị mất)."""
+        if self.tool == "draw" and not self.panel.is_open and (pos is None or not self.toolbar.contains(pos)):
+            return "pinch"
+        return "two_finger"
+
     def do(self, action):
         if action in self.tools:
             self.set_tool(action)

@@ -33,7 +33,6 @@ def test_interaction_defaults():
     assert (c.drag_threshold, c.min_side_px, c.history_limit, c.confirm_window) == (10, 10, 50, 2.0)
 
 
-def test_gesture_default_and_cli():
+def test_two_finger_defaults():
     c = Config()
-    assert (c.gesture, c.two_finger_on, c.two_finger_off) == ("two_finger", 0.25, 0.40)
-    assert parse_args(["--gesture", "pinch"]).gesture == "pinch"
+    assert (c.two_finger_on, c.two_finger_off) == (0.25, 0.40) and not hasattr(c, "gesture")

@@ -106,3 +106,11 @@ def test_changing_selection_clears_measures(press, stroke):
     assert sel.show == {"area"}
     press(c, (100, 650))                          # bấm chỗ trống: bỏ chọn, tắt hết
     assert sel.selected is None and sel.show == set()
+
+
+def test_press_inside_triangle_grabs_and_drags_it(stroke):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append(dict(TRI))
+    c.do("select")
+    stroke(c, [(640, 380), (660, 380), (690, 400)])   # giữa tam giác, không chạm cạnh
+    assert c.tools["select"].selected == 1 and c.board.shapes[0]["pts"][0] == (540.0, 470.0)

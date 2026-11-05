@@ -1,4 +1,4 @@
-"""Phát hiện "bấm"/nhả bằng cử chỉ tay. Hai cử chỉ (phím K trong app):
+"""Phát hiện "bấm"/nhả bằng cử chỉ tay. Hai cử chỉ, dùng theo ngữ cảnh (xem pinch_filter.py):
   - "pinch": chụm ngón cái (4) và ngón trỏ (8). Tay nằm ngang thì ngón trỏ ở trên điểm chụm,
              nên khi với lên mép trên khung camera ngón trỏ ra khỏi hình trước.
   - "two_finger": áp ngón giữa (12) sát ngón trỏ (8), cả 2 ngón duỗi. Con trỏ là đầu ngón trỏ =
@@ -30,10 +30,9 @@ def _extended(p, tip, pip):
 
 
 class PinchDetector:
-    def __init__(self, on_ratio=0.20, off_ratio=0.35, grace=0.2, mode="2d", gesture="pinch",
-                 two_finger=(0.25, 0.40)):
-        assert on_ratio < off_ratio and two_finger[0] < two_finger[1], "ngưỡng bật phải nhỏ hơn ngưỡng nhả"
-        self.limits = {"pinch": [on_ratio, off_ratio], "two_finger": list(two_finger)}  # mỗi cử chỉ 1 cặp ngưỡng
+    def __init__(self, on_ratio=0.20, off_ratio=0.35, grace=0.2, mode="2d", gesture="pinch"):
+        assert on_ratio < off_ratio, "ngưỡng bật phải nhỏ hơn ngưỡng nhả"
+        self.on_ratio, self.off_ratio = on_ratio, off_ratio
         self.grace = grace
         self.mode = mode
         self.gesture = gesture
@@ -42,28 +41,14 @@ class PinchDetector:
         self.ratio = self.ratio2d = self.ratio3d = None  # hiển thị lên HUD để tự hiệu chỉnh
         self.since = None     # thời điểm bắt đầu chuỗi frame "không tin được"
 
-    @property
-    def on_ratio(self):
-        return self.limits[self.gesture][0]
-
-    @property
-    def off_ratio(self):
-        return self.limits[self.gesture][1]
-
     def shift(self, delta):
-        """Dịch cả 2 ngưỡng của cử chỉ đang dùng (giữ nguyên khoảng hysteresis) – phím , và . trong app."""
-        lim = self.limits[self.gesture]
-        if lim[0] + delta > 0.05:
-            lim[0] += delta
-            lim[1] += delta
+        """Dịch cả 2 ngưỡng (giữ nguyên khoảng hysteresis) – phím , và . trong app."""
+        if self.on_ratio + delta > 0.05:
+            self.on_ratio += delta
+            self.off_ratio += delta
 
     def toggle_mode(self):
         self.mode = "3d" if self.mode == "2d" else "2d"
-
-    def toggle_gesture(self):
-        self.gesture = "two_finger" if self.gesture == "pinch" else "pinch"
-        self.pinched = self.holding = False
-        self.since = None
 
     def update(self, hand, t):
         if hand is None:

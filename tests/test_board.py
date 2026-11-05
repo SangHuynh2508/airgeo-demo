@@ -115,3 +115,15 @@ def test_shape_at_prefers_topmost_and_misses_far():
     assert b.shape_at((200, 300), 15)["id"] == top["id"]
     assert b.shape_at((120, 310), 15)["id"] == 1
     assert b.shape_at((600, 600), 15) is None
+
+
+def test_shape_at_inside_prefers_edge_then_smaller_shape():
+    b = Board()
+    small = {"kind": "circle", "pts": [], "center": (300.0, 300.0), "radius": 40.0, "raw": [], "id": 1, "locked": False}
+    big = {"kind": "rect", "pts": [(100.0, 100.0), (500.0, 100.0), (500.0, 500.0), (100.0, 500.0)], "raw": [],
+           "id": 2, "locked": False}
+    b.shapes += [small, big]                      # hình lớn vẽ sau, nằm trên
+    assert b.shape_at((300, 300), 15)["id"] == 1  # trong cả 2: hình nhỏ hơn
+    assert b.shape_at((200, 200), 15)["id"] == 2  # chỉ trong hình lớn
+    assert b.shape_at((345, 300), 15)["id"] == 1  # sát cạnh hình tròn
+    assert b.shape_at((600, 600), 15) is None

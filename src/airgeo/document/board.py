@@ -7,7 +7,8 @@ hình tròn thêm center, radius.
 import copy
 from collections import deque
 
-from airgeo.geometry.hit import distance_to_shape
+from airgeo.geometry.hit import contains, distance_to_shape
+from airgeo.geometry.measure import measure
 from airgeo.geometry.recognize import recognize
 from airgeo.geometry.units import UNITS
 
@@ -99,8 +100,10 @@ class Board:
         self.unit = UNITS[(UNITS.index(self.unit) + 1) % len(UNITS)]
 
     def shape_at(self, pos, radius):
-        """Hình vẽ sau cùng (nằm trên) có nét cách pos không quá radius px."""
+        """Ưu tiên hình vẽ sau cùng (nằm trên) có nét cách pos không quá radius px; không trúng nét
+        thì lấy hình kín nhỏ nhất chứa pos (hình lồng nhau: bấm giữa hình nhỏ cầm hình nhỏ)."""
         for s in reversed(self.shapes):
             if distance_to_shape(pos, s) <= radius:
                 return s
-        return None
+        inside = [s for s in self.shapes if contains(pos, s)]
+        return min(inside, key=lambda s: measure(s)["area"], default=None)

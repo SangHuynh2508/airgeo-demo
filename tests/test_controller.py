@@ -110,3 +110,16 @@ def test_smart_toggle_under_open_panel_does_not_crash_on_ok(press):
     for code in b"3\r":
         c.key(code, 0)
     assert not c.panel.is_open and c.board.scale is None
+
+
+def test_gesture_depends_on_tool_and_place(button):
+    c = _ctl()
+    assert c.gesture_for((400, 400)) == "pinch" and c.gesture_for(None) == "pinch"   # vẽ: chụm
+    assert c.gesture_for(button(c, "undo")) == "two_finger"                          # thanh nút: 2 ngón
+    c.do("select")
+    assert c.gesture_for((400, 400)) == "two_finger"
+    c.do("erase")
+    assert c.gesture_for((400, 400)) == "two_finger"
+    c.do("draw")
+    c.panel.is_open = True
+    assert c.gesture_for((400, 400)) == "two_finger"

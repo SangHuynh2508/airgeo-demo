@@ -29,3 +29,11 @@ def test_circle_distance_is_to_the_rim():
 
 def test_zero_length_segment():
     assert distance_to_shape((13, 14), {"kind": "free", "pts": [(10, 10), (10, 10)]}) == 5
+
+
+def test_contains_closed_shapes_only():
+    from airgeo.geometry.hit import contains
+    tri = {"kind": "triangle", "pts": [(0, 0), (100, 0), (0, 100)]}
+    assert contains((20, 20), tri) and not contains((80, 80), tri)
+    assert contains((10, 0), {"kind": "circle", "pts": [], "center": (0, 0), "radius": 50})
+    assert not contains((50, 0), LINE) and not contains((50, 50), {"kind": "free", "pts": [(0, 0), (100, 100)]})

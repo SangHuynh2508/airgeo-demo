@@ -31,6 +31,7 @@ def run(config: Config):
         raise SystemExit(str(e))
     tracker = HandTracker(model_complexity=config.model_complexity)
     pf, pointer, ctl = PinchFilter(config), PointerTracker(), None
+    cursor = None                 # con trỏ frame trước: quyết định cử chỉ bấm (chụm / 2 ngón) cho frame này
     logger = CsvLogger(config.data_dir)
 
     compare, show_help, show_skeleton = False, True, True
@@ -55,7 +56,8 @@ def run(config: Config):
             board = ctl.board
 
             hand = tracker.process(frame, t)
-            res = pf.step(hand, t)
+            res = pf.step(hand, t, ctl.gesture_for(cursor))
+            cursor = res.fpt or cursor
             if res.raw is not None:
                 raw_trail.append(res.raw)
                 filt_trail.append(res.fpt)
@@ -106,10 +108,8 @@ def run(config: Config):
                 pf.one_euro.set_params(beta=max(1e-4, pf.one_euro.beta / 1.5))
             elif key == ord("'"):
                 pf.one_euro.set_params(beta=pf.one_euro.beta * 1.5)
-            elif key == ord("k"):
-                pf.toggle_gesture()
             elif key == ord("p"):
-                pf.pinch.toggle_mode()
+                pf.toggle_mode()
             elif key == ord("l"):
                 show_skeleton = not show_skeleton
             elif key == ord(","):

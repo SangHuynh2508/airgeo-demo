@@ -68,13 +68,3 @@ def test_curling_fingers_releases_after_grace(make_two_finger):
     assert d.update(make_two_finger(ratio=0.1, fist=True), 0.1) and d.holding
     assert not d.update(make_two_finger(ratio=0.1, fist=True), 0.4)
 
-
-def test_each_gesture_keeps_its_own_thresholds():
-    d = PinchDetector(0.20, 0.35, two_finger=(0.25, 0.40))
-    d.toggle_gesture()
-    assert d.gesture == "two_finger" and (d.on_ratio, d.off_ratio) == (0.25, 0.40)
-    d.shift(0.02)
-    d.toggle_gesture()
-    assert d.gesture == "pinch" and (d.on_ratio, d.off_ratio) == (0.20, 0.35)
-    d.toggle_gesture()
-    assert abs(d.on_ratio - 0.27) < 1e-9

@@ -12,11 +12,8 @@ def parse_args(argv=None) -> Config:
     ap.add_argument("--height", type=int, default=d.height)
     ap.add_argument("--model", type=int, default=d.model_complexity, choices=[0, 1],
                     help="model_complexity cua MediaPipe")
-    ap.add_argument("--gesture", default=d.gesture, choices=["two_finger", "pinch"],
-                    help="cu chi bam: ap ngon giua sat ngon tro, hoac chum ngon cai + tro")
     a = ap.parse_args(argv)
-    return Config(camera=a.camera, width=a.width, height=a.height, model_complexity=a.model,
-                  gesture=a.gesture)
+    return Config(camera=a.camera, width=a.width, height=a.height, model_complexity=a.model)
 
 
 def main(argv=None):
