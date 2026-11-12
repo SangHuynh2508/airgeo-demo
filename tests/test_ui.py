@@ -166,3 +166,20 @@ def test_perimeter_and_area_are_not_duplicated_on_the_shape():
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
     assert not frame[345:385, 455:560].any()                # chỗ nhãn P= / S= cũ quanh trọng tâm (500, 366)
+
+
+def test_canvas_dims_shapes_other_than_active():
+    a = {"kind": "line", "pts": [(100, 100), (300, 100)], "id": 1}
+    b = {"kind": "line", "pts": [(100, 300), (300, 300)], "id": 2}
+    bright = draw_canvas(np.zeros((400, 400, 3), np.uint8), [a, b], None)
+    dim = draw_canvas(np.zeros((400, 400, 3), np.uint8), [a, b], None, active=1)
+    assert (dim[100, 200] == bright[100, 200]).all() and 0 < dim[300, 200].sum() < bright[300, 200].sum()
+
+
+def test_blocked_drag_paints_shape_red():
+    from airgeo.ui.render import draw_tool_overlay
+    c, sel = _selected({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)]}, set())
+    sel.blocked = True
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    assert tuple(frame[300, 150]) == (0, 0, 255)

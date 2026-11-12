@@ -71,7 +71,8 @@ def run(config: Config):
                 fps = 1 / dt if fps == 0 else 0.9 * fps + 0.1 / dt
             n_frames += 1
 
-            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur)
+            active = ctl.tools["select"].selected if ctl.tool == "select" else None
+            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur, active)
             # HUD vẽ trước lớp công cụ: khung hình hẹp (640) thì bảng công thức / cột Tinh nằm đè lên HUD
             draw_hud(frame, hud_lines(pf, board, ctl.tool, fps, compare,
                                       logger.session_id if logger.active else None),
@@ -85,7 +86,9 @@ def run(config: Config):
                 draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
             if show_help:
                 draw_help(frame)
-            if t < status_until:
+            if t < ctl.message_until:
+                draw_status(frame, ctl.message)
+            elif t < status_until:
                 draw_status(frame, status_msg)
             cv2.imshow(WIN, frame)
 

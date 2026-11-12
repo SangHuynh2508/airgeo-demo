@@ -109,12 +109,18 @@ def draw_measurements(img, s, scale=None, unit="cm", show=()):
         text(img, line, ip((cx - 60, cy + 22 * i - 11 * (len(totals) - 1))))
 
 
-def draw_canvas(frame, shapes, cur):
+DIM = 0.45     # hình không được chọn: còn thấy để tránh vẽ đè, nhưng lùi lại sau hình đang thao tác
+
+
+def draw_canvas(frame, shapes, cur, active=None):
     """Vẽ các nét lên lớp canvas đen rồi trộn lên khung hình. Số đo chỉ vẽ khi được yêu cầu
-    (cột "Tinh:" của công cụ Chọn, xem draw_tool_overlay)."""
+    (cột "Tinh:" của công cụ Chọn, xem draw_tool_overlay). Có active (id hình đang chọn) thì hình khác vẽ mờ."""
     canvas = np.zeros_like(frame)
     for s in shapes:
-        draw_shape(canvas, s)
+        if active is None or s["id"] == active:
+            draw_shape(canvas, s)
+        else:
+            draw_shape(canvas, s, tuple(round(c * DIM) for c in (FREE_COLOR if s["kind"] == "free" else SHAPE_COLOR)), 2)
     if cur and len(cur) >= 2:
         cv2.polylines(canvas, [np.array([ip(p) for p in cur], dtype=np.int32)], False, FREE_COLOR, 3, cv2.LINE_AA)
     return cv2.addWeighted(frame, 0.6, canvas, 1, 0)
@@ -145,14 +151,15 @@ ERASE_COLOR = (0, 0, 255)        # đỏ: hình sắp bị xóa
 MEASURE_LABELS = {"sides": "Canh", "angles": "Goc", "perimeter": "Chu vi", "area": "Dien tich", "radius": "Ban kinh"}
 
 
-def draw_selection(img, s):
-    """Viền nổi bật hình đang chọn; tam giác ghi tên đỉnh A, B, C; nhãn cạnh bấm được để sửa số đo."""
-    draw_shape(img, s, SELECT_COLOR, 6)
+def draw_selection(img, s, color=SELECT_COLOR):
+    """Viền nổi bật hình đang chọn (đỏ khi đang kéo đè lên hình khác); tam giác ghi tên đỉnh A, B, C;
+    nhãn cạnh bấm được để sửa số đo."""
+    draw_shape(img, s, color, 6)
     if s["kind"] == "triangle":
         pts = s["pts"]
         cx, cy = sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3
         for name, (x, y) in zip("ABC", pts):
-            text(img, name, ip((x + (x - cx) * 0.15 - 6, y + (y - cy) * 0.15 + 6)), 0.7, SELECT_COLOR)
+            text(img, name, ip((x + (x - cx) * 0.15 - 6, y + (y - cy) * 0.15 + 6)), 0.7, color)
     for f, (x, y) in label_anchors(s).items():
         draw_button(img, (x - 28, y - 16, x + 28, y + 16), f, scale=0.55)
 
@@ -165,7 +172,7 @@ def draw_tool_overlay(img, ctl):
     if shape is None:
         return
     if ctl.tool == "select":
-        draw_selection(img, shape)
+        draw_selection(img, shape, ERASE_COLOR if tool.blocked else SELECT_COLOR)
         # chu vi / diện tích nằm trong bảng công thức, không ghi lại trên hình
         draw_measurements(img, shape, ctl.board.scale, ctl.board.unit, tool.show - {"perimeter", "area"})
         menu = tool.menu(shape)
