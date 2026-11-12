@@ -10,12 +10,13 @@ from collections import deque
 from airgeo.geometry.hit import contains, distance_to_shape, overlaps
 from airgeo.geometry.measure import measure
 from airgeo.geometry.recognize import recognize
+from airgeo.geometry.rotate import rotate_points, straighten
 from airgeo.geometry.units import UNITS
 
 
 def make_shape(raw, smart):
     """raw: [(x, y, t)] của nét. Giữ lại raw để nhận dạng lại khi bật/tắt Smart Shape."""
-    shape = recognize(raw) if smart else {"kind": "free", "pts": [(x, y) for x, y, _ in raw]}
+    shape = straighten(recognize(raw)) if smart else {"kind": "free", "pts": [(x, y) for x, y, _ in raw]}
     shape["raw"] = raw
     return shape
 
@@ -89,6 +90,16 @@ class Board:
         if "center" in s:
             cx, cy = s["center"]
             s["center"] = (cx + dx, cy + dy)
+
+    def rotate(self, sid, deg, about):
+        """Xoay hình quanh about (độ, chiều kim đồng hồ trên ảnh). Như translate: không tự lưu Undo."""
+        s = self.get(sid)
+        if s is None:
+            return
+        s["pts"] = rotate_points(s["pts"], deg, about)
+        s["raw"] = rotate_points(s["raw"], deg, about)
+        if "center" in s:
+            s["center"] = rotate_points([s["center"]], deg, about)[0]
 
     def apply_edit(self, sid, shape, scale):
         """Thay hình bằng hình dựng lại theo số đo và đặt tỉ lệ, cùng 1 bước Undo."""

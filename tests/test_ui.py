@@ -233,3 +233,26 @@ def test_toast_legend_progress_and_radial_menu_paint():
     draw_radial_menu(menu, c.menu, c.board, 0.0, (640, 280))
     ux, uy = dict(c.menu.positions())["unit"]
     assert menu[int(uy) - 20:int(uy) + 20, int(ux) - 30:int(ux) + 30].any()
+
+
+def test_side_values_sit_outside_the_label_chips():
+    from airgeo.geometry.construct import label_anchors
+    from airgeo.ui.render import draw_measurements
+    for shape in ({"kind": "rect", "pts": [(400.0, 300.0), (820.0, 300.0), (820.0, 480.0), (400.0, 480.0)]},
+                  {"kind": "line", "pts": [(300.0, 300.0), (700.0, 380.0)]},
+                  {"kind": "circle", "pts": [], "center": (600.0, 400.0), "radius": 120.0}):
+        frame = np.zeros((720, 1280, 3), np.uint8)
+        draw_measurements(frame, shape, show={"sides", "radius"})
+        assert frame.any()
+        for x, y in label_anchors(shape).values():               # chỗ nút nhãn (56 x 32) phải trống
+            assert not frame[int(y) - 16:int(y) + 16, int(x) - 28:int(x) + 28].any()
+
+
+def test_rotation_handle_is_drawn_for_selected_rect():
+    from airgeo.ui.render import draw_tool_overlay
+    c, sel = _selected({"kind": "rect", "pts": [(500.0, 350.0), (700.0, 350.0), (700.0, 450.0), (500.0, 450.0)]},
+                       set())
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    hx, hy = sel.handle(c.board.get(1))
+    assert frame[int(hy) - 3:int(hy) + 4, int(hx) - 3:int(hx) + 4].any()

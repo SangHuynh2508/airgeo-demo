@@ -1,3 +1,4 @@
+import math
 from airgeo.config import Config
 from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerEvent as E
@@ -188,3 +189,47 @@ def test_dragged_shape_undone_mid_drag_does_not_crash(stroke):
     c.dispatch(E("move", (200, 600), 1.06))
     c.dispatch(E("up", (200, 600), 1.1))
     assert [s["id"] for s in c.board.shapes] == [1]
+
+
+RECT = {"kind": "rect", "pts": [(500.0, 350.0), (700.0, 350.0), (700.0, 450.0), (500.0, 450.0)], "raw": [],
+        "id": 1, "locked": False}
+
+
+def _rotate_drag(c, deg, t0=1.0):
+    """Áp 2 ngón vào tay cầm rồi kéo vòng quanh tâm (600, 400) thêm deg độ."""
+    h = c.tools["select"].handle(c.board.get(1))
+    c.dispatch(E("down", h, t0))
+    cx, cy = 600, 400
+    a0 = math.atan2(h[1] - cy, h[0] - cx)
+    a1 = a0 + math.radians(deg)
+    end = (cx + 120 * math.cos(a1), cy + 120 * math.sin(a1))
+    for k in range(1, 11):                               # đi vòng quanh tâm
+        a = a0 + (a1 - a0) * k / 10
+        c.dispatch(E("move", (cx + 120 * math.cos(a), cy + 120 * math.sin(a)), t0 + k * 0.03))
+    c.dispatch(E("up", end, t0 + 0.4))
+
+
+def test_rotation_handle_turns_shape_and_snaps_to_axis(press):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append(dict(RECT))
+    c.do("select")
+    press(c, (600, 450))
+    assert c.tools["select"].handle(c.board.get(1)) is not None
+    _rotate_drag(c, 87)                                   # thiếu 3° nữa là đứng: hít về 90°
+    pts = c.board.get(1)["pts"]
+    xs = sorted(round(p[0]) for p in pts)
+    assert xs == [550, 550, 650, 650]                     # quay đúng 90°, hít thẳng trục
+    c.do("undo")
+    assert c.board.get(1)["pts"] == RECT["pts"]          # cả lần xoay = 1 bước Undo
+
+
+def test_rotation_into_neighbour_snaps_back_and_circle_has_no_handle(press):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append(dict(RECT))
+    c.board.shapes.append({"kind": "circle", "pts": [], "center": (600.0, 530.0), "radius": 40.0, "raw": [],
+                           "id": 2, "locked": False})
+    c.do("select")
+    press(c, (600, 450))
+    _rotate_drag(c, 90)                                   # dài 200 dựng dọc, chạm hình tròn bên dưới
+    assert c.board.get(1)["pts"] == RECT["pts"] and "đè lên" in c.message
+    assert c.tools["select"].handle(c.board.get(2)) is None
