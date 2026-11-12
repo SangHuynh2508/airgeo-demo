@@ -8,3 +8,4 @@ docs/
 *.egg-info/
 .pytest_cache/
 build/
+PRODUCT.md
