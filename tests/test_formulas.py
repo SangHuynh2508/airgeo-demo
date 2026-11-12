@@ -46,3 +46,10 @@ def test_triangle_height_foot_is_perpendicular_on_line_ab():
     c, foot, h = triangle_height([(0.0, 0.0), (100.0, 0.0), (150.0, 80.0)])   # tam giác tù: chân ngoài AB
     assert foot == pytest.approx((150.0, 0.0)) and h == pytest.approx(80.0)
     assert triangle_height([(5.0, 5.0), (5.0, 5.0), (9.0, 9.0)])[2] == 0.0        # AB suy biến
+
+
+def test_small_values_in_dm_and_m_do_not_round_to_zero():
+    assert [trim(v) for v in (0.045, 0.0012, 0.00003)] == ["0.045", "0.0012", "0.00003"]
+    rect = {"kind": "rect", "pts": [(0.0, 0.0), (300.0, 0.0), (300.0, 400.0), (0.0, 400.0)]}   # 3 x 4 cm
+    assert formula(rect, "perimeter", 100, "m")[2:] == ["= 2(0.03 + 0.04)", "= 0.14 m"]
+    assert formula(rect, "area", 100, "m")[3] == "= 0.0012 m²"

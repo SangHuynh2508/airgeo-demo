@@ -66,21 +66,21 @@ def run(config: Config):
             logger.log(**pf.csv_row(hand, t, res, board.smart))
 
             # ---- Vẽ ----
-            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur)
-            draw_tool_overlay(frame, ctl)
-            if compare:
-                draw_trails(frame, raw_trail, filt_trail)
-            draw_hand(frame, hand, res, show_skeleton, pf.pinch.gesture)
-
             dt, t_prev = t - t_prev, t
             if dt > 0:
                 fps = 1 / dt if fps == 0 else 0.9 * fps + 0.1 / dt
             n_frames += 1
 
-            draw_toolbar(frame, ctl, t, res.fpt)
+            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur)
+            # HUD vẽ trước lớp công cụ: khung hình hẹp (640) thì bảng công thức / cột Tinh nằm đè lên HUD
             draw_hud(frame, hud_lines(pf, board, ctl.tool, fps, compare,
                                       logger.session_id if logger.active else None),
                      recording=logger.active, top=config.toolbar_height)
+            draw_tool_overlay(frame, ctl)
+            if compare:
+                draw_trails(frame, raw_trail, filt_trail)
+            draw_hand(frame, hand, res, show_skeleton, pf.pinch.gesture)
+            draw_toolbar(frame, ctl, t, res.fpt)
             if ctl.panel.is_open:
                 draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
             if show_help:

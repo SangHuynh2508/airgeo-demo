@@ -1,4 +1,6 @@
 """Đơn vị đo. Tỉ lệ bản vẽ lưu bằng số px ứng với 1 cm; đổi đơn vị chỉ đổi số hiển thị."""
+import math
+
 UNITS = ["mm", "cm", "dm", "m"]
 TO_CM = {"mm": 0.1, "cm": 1.0, "dm": 10.0, "m": 100.0}
 
@@ -23,5 +25,7 @@ def fmt_area(px2, scale, unit):
 
 
 def trim(v):
-    """Số gọn: 2 chữ số thập phân, bỏ 0 thừa (5, 2.4, 18.85)."""
-    return f"{v:.2f}".rstrip("0").rstrip(".")
+    """Số gọn, bỏ 0 thừa: 2 chữ số thập phân (5, 2.4, 18.85); số nhỏ hơn 1 giữ 3 chữ số có nghĩa
+    để đổi sang dm / m không thành 0 (0.045, 0.0012)."""
+    d = 2 if abs(v) >= 1 or v == 0 else 2 - math.floor(math.log10(abs(v)))
+    return f"{v:.{d}f}".rstrip("0").rstrip(".")

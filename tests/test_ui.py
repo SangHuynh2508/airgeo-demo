@@ -104,8 +104,8 @@ def test_canvas_draws_no_measurements_until_asked():
     assert not blank.any()
 
 
-def _selected(shape, show, height=720):
-    c = Controller(Config(), 1280, height)
+def _selected(shape, show, height=720, width=1280):
+    c = Controller(Config(), width, height)
     c.board.shapes.append(dict(shape, raw=[], id=1, locked=False))
     c.board.scale = 100.0
     c.do("select")
@@ -147,11 +147,12 @@ def test_triangle_area_draws_dashed_height_also_when_obtuse():
 
 def test_formula_panel_fits_small_frame_and_skips_line():
     from airgeo.ui.render import draw_tool_overlay
-    c, _ = _selected(TRI_345, {"perimeter", "area"}, height=480)
+    c, _ = _selected(TRI_345, {"perimeter", "area"}, height=480, width=640)
     frame = np.zeros((480, 640, 3), np.uint8)
     from airgeo.ui.render import draw_formulas
     x0, y0, x1, y1 = draw_formulas(frame, c.board.get(1), c.tools["select"], 100.0, "cm")
-    assert y1 <= 480 - 40 and x1 <= c.tools["select"].menu_x  # khung thấp: bảng sang trái cột nút, đủ chỗ
+    assert 0 <= x0 and y1 <= 480 - 40 and x1 <= c.tools["select"].menu_x   # sang trái cột nút, đủ chỗ
+    assert frame[y1 - 30:y1 - 8, x0 + 8:x1 - 8].any()                      # dòng kết quả cuối có trong ảnh
     c, sel = _selected({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)]}, {"sides"})
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
