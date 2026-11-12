@@ -40,15 +40,25 @@ def text(img, s, org, scale=0.5, color=(255, 255, 255)):
     cv2.putText(img, s, org, cv2.FONT_HERSHEY_SIMPLEX, scale, color, 1, cv2.LINE_AA)
 
 
+def fit_size(labels, width, size):
+    """Cỡ chữ lớn nhất (<= size, >= 12) để mọi nhãn vừa nút rộng width."""
+    while size > 12 and max(text_size([s], size)[0] for s in labels) > width - 8:
+        size -= 1
+    return size
+
+
 def draw_button(img, rect, label, on=False, hover=False, scale=0.6):
-    """Nút chữ nhật dùng chung cho thanh nút, bàn phím số, nhãn cạnh."""
+    """Nút chữ nhật dùng chung (dải trạng thái, cột Tính, bàn phím số, nhãn cạnh). Nền tối riêng để chữ đọc được
+    trên mọi nền camera (tường trắng), nền xanh khi đang bật, viền vàng dày khi con trỏ ở trên.
+    Chữ Pillow (có dấu), cỡ theo scale, tự thu nhỏ cho vừa nút."""
     x0, y0, x1, y1 = (int(round(v)) for v in rect)
-    if on:
-        cv2.rectangle(img, (x0, y0), (x1, y1), BUTTON_ON, -1)
+    roi = img[max(y0, 0):max(y1, 0), max(x0, 0):max(x1, 0)]
+    roi[:] = BUTTON_ON if on else (roi * 0.3).astype(np.uint8)
     cv2.rectangle(img, (x0, y0), (x1, y1), BUTTON_HOVER if hover else BUTTON_EDGE, 3 if hover else 1)
     if label:
-        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, 1)
-        text(img, label, ((x0 + x1 - tw) // 2, (y0 + y1 + th) // 2), scale)
+        size = fit_size([label], x1 - x0, round(scale * 36))
+        w, h = text_size([label], size)
+        put_text(img, [label], ((x0 + x1 - w) // 2, (y0 + y1 - h) // 2 + 2), size)
 
 
 def draw_shape(img, s, color=None, thickness=3):
@@ -150,7 +160,7 @@ def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
 
 SELECT_COLOR = (255, 200, 0)     # xanh dương nhạt: hình đang chọn
 ERASE_COLOR = (0, 0, 255)        # đỏ: hình sắp bị xóa
-MEASURE_LABELS = {"sides": "Canh", "angles": "Goc", "perimeter": "Chu vi", "area": "Dien tich", "radius": "Ban kinh"}
+MEASURE_LABELS = {"sides": "Cạnh", "angles": "Góc", "perimeter": "Chu vi", "area": "Diện tích", "radius": "Bán kính"}
 
 
 def draw_selection(img, s, color=SELECT_COLOR):
@@ -180,9 +190,9 @@ def draw_tool_overlay(img, ctl):
         menu = tool.menu(shape)
         if menu:
             x0, y0 = menu[0][1][:2]
-            text(img, "Tinh:", (int(x0), int(y0) - 10), 0.6)
+            put_text(img, ["Tính"], (int(x0), int(y0) - 30), 20, bold=True)
         for k, rect in menu:
-            label = "Do dai" if shape["kind"] == "line" else MEASURE_LABELS[k]
+            label = "Độ dài" if shape["kind"] == "line" else MEASURE_LABELS[k]
             draw_button(img, rect, label, on=k in tool.show)
         if shape["kind"] == "triangle" and "area" in tool.show:
             draw_height(img, shape["pts"])
@@ -254,3 +264,52 @@ def draw_formulas(img, shape, tool, scale, unit):
             y += put_text(img, [s], (x0 + PANEL_PAD, y), size + ds, color, bold)[1]
         y += BLOCK_GAP
     return x0, top, right, top + h
+
+
+POSE_LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa", "undo": "Hoàn tác", "menu": "Menu"}
+
+
+def _label_chip(img, lines, org, size, bold=False):
+    """Khối chữ trên nền tối (đọc được trên mọi nền camera)."""
+    w, h = text_size(lines, size, bold)
+    x, y = org
+    roi = img[max(y - 6, 0):max(y + h + 4, 0), max(x - 10, 0):max(x + w + 10, 0)]
+    roi[:] = (roi * 0.25).astype(np.uint8)
+    put_text(img, lines, (x, y), size, bold=bold)
+
+
+def draw_pose_progress(img, pos, progress):
+    """Vòng tiến độ quanh đầu ngón khi đang giữ một tư thế + tên lệnh sắp chạy. Giữ chưa tới 20% thì chưa vẽ
+    (tay đang chuyển tư thế thoáng qua, không nên nhấp nháy)."""
+    if progress is None or pos is None or progress[1] < 0.2:
+        return
+    action, frac = progress
+    c = ip(pos)
+    cv2.circle(img, c, 30, (70, 70, 70), 6, cv2.LINE_AA)
+    cv2.ellipse(img, c, (30, 30), -90, 0, 360 * frac, BUTTON_HOVER, 6, cv2.LINE_AA)
+    _, h = text_size([POSE_LABELS[action]], 22, True)
+    _label_chip(img, [POSE_LABELS[action]], (c[0] + 46, c[1] - h // 2), 22, bold=True)
+
+
+def draw_radial_menu(img, menu, board, t, cursor):
+    """Menu tròn: 4 mục quanh tâm, mục dưới con trỏ viền vàng; Smart đang bật nền xanh, Xóa hết đã bấm 1 lần nền đỏ."""
+    from airgeo.interaction.radial_menu import ITEM_R
+    armed = menu.clear_armed(t)
+    labels = {"unit": ["Đơn vị", board.unit], "smart": ["Smart", "bật" if board.smart else "tắt"],
+              "clear": ["Chắc", "chưa?"] if armed else ["Xóa", "hết"], "close": ["Đóng"]}
+    hover = menu.hit(cursor) if cursor is not None else None
+    for a, p in menu.positions():
+        cx, cy = ip(p)
+        x0, y0 = max(cx - ITEM_R, 0), max(cy - ITEM_R, 0)
+        roi = img[y0:cy + ITEM_R + 1, x0:cx + ITEM_R + 1]
+        disk = roi.copy()
+        fill = BUTTON_ON if a == "smart" and board.smart else (0, 0, 170) if a == "clear" and armed else (0, 0, 0)
+        cv2.circle(disk, (cx - x0, cy - y0), ITEM_R, fill, -1, cv2.LINE_AA)
+        roi[:] = cv2.addWeighted(roi, 0.3, disk, 0.7, 0)
+        cv2.circle(img, (cx, cy), ITEM_R, BUTTON_HOVER if a == hover else BUTTON_EDGE, 3 if a == hover else 1,
+                   cv2.LINE_AA)
+        lh = round(18 * 1.3)                     # canh giữa từng dòng
+        for i, s in enumerate(labels[a]):
+            w, _ = text_size([s], 18, True)
+            put_text(img, [s], (cx - w // 2, cy - lh * len(labels[a]) // 2 + i * lh), 18, bold=True)
+    cv2.circle(img, ip(menu.center), 5, BUTTON_EDGE, -1, cv2.LINE_AA)

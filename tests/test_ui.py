@@ -190,3 +190,46 @@ def test_canvas_ignores_active_id_that_no_longer_exists():
     bright = draw_canvas(np.zeros((400, 400, 3), np.uint8), [a], None)
     stale = draw_canvas(np.zeros((400, 400, 3), np.uint8), [a], None, active=9)   # hình đã bị Undo
     assert (stale == bright).all()
+
+
+def test_button_has_dark_backing_and_vietnamese_label():
+    from airgeo.ui.render import draw_button
+    frame = np.full((100, 300, 3), 255, np.uint8)           # tường trắng
+    draw_button(frame, (20, 20, 200, 70), "Đơn vị: cm")
+    inside = frame[22:68, 22:198]
+    assert (inside < 128).mean() > 0.5 and (inside > 200).any()   # nền tối, chữ sáng
+    assert (frame[0:15] == 255).all()                       # ngoài nút không đổi
+
+
+def test_toolbar_only_paints_its_band_and_groups_tools_left():
+    c = Controller(Config(), 1280, 720)
+    frame = np.full((720, 1280, 3), 200, np.uint8)
+    draw_toolbar(frame, c, 0.0, None)
+    assert (frame[60:] == 200).all() and (frame[:60] != 200).any()
+    r = c.toolbar.rects
+    assert r["erase"][2] + 30 < r["undo"][0]                 # 2 cụm: công cụ | lệnh
+    assert r["clear"][2] <= 1280 - 5
+
+
+def test_toast_legend_progress_and_radial_menu_paint():
+    from airgeo.ui.hud import draw_legend, draw_status
+    from airgeo.ui.render import draw_pose_progress, draw_radial_menu
+    c = Controller(Config(), 1280, 720)
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_status(frame, "Đã hoàn tác")
+    assert frame[60:140, 500:780].any()                      # thông báo giữa, dưới dải trạng thái
+    blank = np.zeros((720, 1280, 3), np.uint8)
+    draw_legend(blank)
+    assert blank[600:715, 0:400].any() and not blank[:500].any()
+    ring = np.zeros((720, 1280, 3), np.uint8)
+    draw_pose_progress(ring, (640, 400), ("draw", 0.5))
+    assert ring[400 - 40:400 + 40, 640 - 40:640 + 40].any()
+    nothing = np.zeros((720, 1280, 3), np.uint8)
+    draw_pose_progress(nothing, (640, 400), ("draw", 0.1))   # mới thoáng qua: chưa vẽ
+    draw_pose_progress(nothing, (640, 400), None)
+    assert not nothing.any()
+    c.menu.open((640, 400), 0.0)
+    menu = np.zeros((720, 1280, 3), np.uint8)
+    draw_radial_menu(menu, c.menu, c.board, 0.0, (640, 280))
+    ux, uy = dict(c.menu.positions())["unit"]
+    assert menu[int(uy) - 20:int(uy) + 20, int(ux) - 30:int(ux) + 30].any()

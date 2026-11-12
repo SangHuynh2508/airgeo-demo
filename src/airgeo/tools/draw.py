@@ -21,7 +21,7 @@ class DrawTool:
             return
         shape = ctl.board.add_stroke(raw)
         if shape is None:
-            ctl.notify("Hinh moi de len hinh khac - ve o cho trong", raw[-1][2])
+            ctl.notify("Hình mới đè lên hình khác – vẽ ở chỗ trống", raw[-1][2])
         elif select and shape["kind"] != "free":
             # hình nhận dạng được: chọn luôn để đo / kéo / sửa số; nét tự do thì vẽ tiếp
             ctl.set_tool("select")

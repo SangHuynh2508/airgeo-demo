@@ -9,6 +9,7 @@ from collections import deque
 import cv2
 
 from airgeo.config import Config
+from airgeo.gesture.pose import classify
 from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerTracker
 from airgeo.pinch_filter import PinchFilter
@@ -16,8 +17,9 @@ from airgeo.recording.csv_logger import CsvLogger
 from airgeo.tracking.camera import open_camera
 from airgeo.tracking.hand_tracker import HandTracker
 from airgeo.ui.edit_panel import draw_edit_panel
-from airgeo.ui.hud import draw_help, draw_hud, draw_status, hud_lines
-from airgeo.ui.render import draw_canvas, draw_hand, draw_tool_overlay, draw_trails
+from airgeo.ui.hud import draw_help, draw_hud, draw_legend, draw_status, hud_lines
+from airgeo.ui.render import (draw_canvas, draw_hand, draw_pose_progress, draw_radial_menu, draw_tool_overlay,
+                              draw_trails)
 from airgeo.ui.toolbar import draw_toolbar
 
 WIN = "AirGeo"
@@ -35,6 +37,7 @@ def run(config: Config):
     logger = CsvLogger(config.data_dir)
 
     compare, show_help, show_skeleton = False, True, True
+    tech = False                  # phím D: thông số kỹ thuật (HUD, phím lọc, khung xương) – người dùng không cần
     raw_trail, filt_trail = deque(maxlen=config.trail_len), deque(maxlen=config.trail_len)
     fps, n_frames, t_start, t_prev = 0.0, 0, time.perf_counter(), time.perf_counter()
     status_msg, status_until = "", 0.0
@@ -63,6 +66,8 @@ def run(config: Config):
                 filt_trail.append(res.fpt)
             for ev in pointer.update(res, t):
                 ctl.dispatch(ev)
+            # tư thế tay giữ yên -> đổi công cụ / Undo / menu tròn (Controller bỏ qua khi đang chụm, bảng nhập mở)
+            ctl.on_pose(classify(hand["pts"]) if hand else None, hand["pts"][9] if hand else (0, 0), t)
             logger.log(**pf.csv_row(hand, t, res, board.smart))
 
             # ---- Vẽ ----
@@ -73,19 +78,23 @@ def run(config: Config):
 
             active = ctl.tools["select"].selected if ctl.tool == "select" else None
             frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur, active)
-            # HUD vẽ trước lớp công cụ: khung hình hẹp (640) thì bảng công thức / cột Tinh nằm đè lên HUD
-            draw_hud(frame, hud_lines(pf, board, ctl.tool, fps, compare,
-                                      logger.session_id if logger.active else None),
-                     recording=logger.active, top=config.toolbar_height)
+            if tech:
+                # HUD vẽ trước lớp công cụ: khung hình hẹp (640) thì bảng công thức / cột Tinh nằm đè lên HUD
+                draw_hud(frame, hud_lines(pf, board, ctl.tool, fps, compare,
+                                          logger.session_id if logger.active else None),
+                         recording=logger.active, top=config.toolbar_height)
             draw_tool_overlay(frame, ctl)
             if compare:
                 draw_trails(frame, raw_trail, filt_trail)
-            draw_hand(frame, hand, res, show_skeleton, pf.pinch.gesture)
+            draw_hand(frame, hand, res, show_skeleton and tech, pf.pinch.gesture)
             draw_toolbar(frame, ctl, t, res.fpt)
+            if ctl.menu.is_open:
+                draw_radial_menu(frame, ctl.menu, board, t, res.fpt)
             if ctl.panel.is_open:
                 draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
+            draw_pose_progress(frame, res.fpt, ctl.poses.progress)
             if show_help:
-                draw_help(frame)
+                (draw_help if tech else draw_legend)(frame)
             if t < ctl.message_until:
                 draw_status(frame, ctl.message)
             elif t < status_until:
@@ -127,12 +136,14 @@ def run(config: Config):
                 compare = not compare
             elif key == ord("h"):
                 show_help = not show_help
+            elif key == ord("d"):
+                tech = not tech
             elif key == ord("r"):
                 if logger.active:
                     logger.stop()
-                    status_msg = "Da dung ghi CSV"
+                    status_msg = "Đã dừng ghi CSV"
                 else:
-                    status_msg = f"Dang ghi: {logger.start()}"
+                    status_msg = f"Đang ghi: {logger.start()}"
                 status_until = t + 3
     finally:
         logger.stop()

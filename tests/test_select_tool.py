@@ -145,7 +145,7 @@ def test_drop_on_another_shape_snaps_back_and_leaves_no_undo_step(stroke):
     c.dispatch(E("move", (200, 302), 2.06))             # đè lên đoạn trên
     assert sel.blocked
     c.dispatch(E("up", (200, 302), 2.1))
-    assert c.board.shapes[1]["pts"][0] == (100, 500) and not sel.blocked and "de len" in c.message
+    assert c.board.shapes[1]["pts"][0] == (100, 500) and not sel.blocked and "đè lên" in c.message
     c.do("undo")
     assert len(c.board.shapes) == 1                     # Undo tiếp theo gỡ nét thứ 2, không phải lần kéo
 

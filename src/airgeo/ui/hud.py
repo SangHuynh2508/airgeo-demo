@@ -3,13 +3,14 @@ Chữ không dấu vì cv2.putText không vẽ được Unicode."""
 import cv2
 import numpy as np
 
-from airgeo.ui.render import text
+from airgeo.ui.render import _label_chip, text
+from airgeo.ui.text import text_size
 
 TOOL_NAMES = {"draw": "Ve", "select": "Chon", "erase": "Xoa"}
 GESTURE_NAMES = {"two_finger": "2 ngon", "pinch": "chum"}
 HELP = [
     "Ve: chum cai+tro | Nut, Chon, Xoa: ap 2 ngon tro+giua | 0/1/2: loc  [ ]: mincutoff  ; ': beta  - =: MA n  , .: nguong chum",
-    "V/G/X: Ve/Chon/Xoa  N: don vi  S: Smart  U: undo  C: xoa het  M: so sanh  P: 2D/3D  L: xuong  R: CSV  H: an  Q: thoat",
+    "V/G/X: Ve/Chon/Xoa  N: don vi  S: Smart  U: undo  C: xoa het  M: so sanh  P: 2D/3D  L: xuong  R: CSV  H: an  D: tat ky thuat  Q: thoat",
 ]
 
 
@@ -51,5 +52,16 @@ def draw_help(img):
         text(img, s, (10, h - 32 + 20 * i), 0.5, (220, 220, 220))
 
 
-def draw_status(img, msg):
-    text(img, msg, (10, img.shape[0] - 60), 0.6, (0, 255, 255))
+LEGEND = ["3 ngón: Vẽ", "Xòe tay: Chọn  ·  giữ lâu: Menu", "Ngón trỏ + út: Xóa", "Nắm tay: Hoàn tác"]
+
+
+def draw_legend(img):
+    """Gợi ý tư thế tay (góc dưới trái; phím H ẩn / hiện)."""
+    _, h = text_size(LEGEND, 18)
+    _label_chip(img, LEGEND, (20, img.shape[0] - h - 14), 18)
+
+
+def draw_status(img, msg, top=60):
+    """Thông báo ngắn: chữ lớn giữa màn hình, ngay dưới dải trạng thái (xa bảng gợi ý và cột Tính)."""
+    w, _ = text_size([msg], 28, True)
+    _label_chip(img, [msg], ((img.shape[1] - w) // 2, top + 20), 28, bold=True)

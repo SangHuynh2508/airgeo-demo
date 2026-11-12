@@ -94,7 +94,7 @@ class SelectTool:
                 self.selected, self.show = None, set()
             if self.blocked:
                 board.undo(self._snap)   # gỡ đúng lần kéo này: hình về chỗ cũ, không để lại bước Undo
-                ctl.notify("Khong tha duoc: de len hinh khac", ev.t)
+                ctl.notify("Không thả được: đè lên hình khác", ev.t)
             self._grab, self._dragging, self._clear_at, self.blocked = None, False, None, False
 
     def end(self, ctl):

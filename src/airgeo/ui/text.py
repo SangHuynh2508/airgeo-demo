@@ -15,7 +15,7 @@ def _font(size, bold=False):
         return ImageFont.load_default()
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=512)
 def _render(lines, size, bold=False):
     font, lh = _font(size, bold), round(size * 1.3)
     w = max(1, *(round(font.getlength(s)) + 2 for s in lines))

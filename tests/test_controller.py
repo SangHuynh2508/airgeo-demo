@@ -138,7 +138,7 @@ def test_free_stroke_stays_in_draw_and_overlap_is_refused(stroke):
     stroke(c, [(100, 300), (200, 300), (300, 300)])
     assert c.tool == "draw" and len(c.board.shapes) == 1
     stroke(c, [(200, 250), (200, 300), (200, 350)], t0=1.0)       # cắt nét cũ
-    assert len(c.board.shapes) == 1 and c.message.startswith("Hinh moi de len") and c.message_until > 1.0
+    assert len(c.board.shapes) == 1 and c.message.startswith("Hình mới đè lên") and c.message_until > 1.0
 
 
 def test_switching_tool_mid_stroke_keeps_shape_without_auto_select():
