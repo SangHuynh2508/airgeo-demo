@@ -13,6 +13,7 @@ dependencies = [
     "opencv-contrib-python==4.11.0.86",
     "numpy==1.26.4",
     "OneEuroFilter==0.2.1",
+    "pillow==13.0.0",
 ]
 
 [project.optional-dependencies]
