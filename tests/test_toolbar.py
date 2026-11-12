@@ -13,7 +13,7 @@ def test_buttons_fit_in_toolbar(width):
     tb = Toolbar(width, Config())
     assert list(tb.rects) == BUTTONS
     rects = list(tb.rects.values())
-    assert all(0 <= x0 < x1 <= width and 0 <= y0 < y1 <= 70 for x0, y0, x1, y1 in rects)
+    assert all(0 <= x0 < x1 <= width and 0 <= y0 < y1 <= 60 for x0, y0, x1, y1 in rects)
     assert all(a[2] < b[0] for a, b in zip(rects, rects[1:]))       # không chồng nhau
 
 
@@ -21,7 +21,7 @@ def test_hit_and_contains():
     tb = Toolbar(1280, Config())
     assert tb.hit(center(tb.rects["undo"])) == "undo"
     assert tb.hit((5, 35)) is None                                  # khe giữa mép và nút đầu
-    assert tb.contains((500, 69)) and not tb.contains((500, 70))
+    assert tb.contains((500, 59)) and not tb.contains((500, 60))
     assert tb.hit((500, 300)) is None
 
 

@@ -150,3 +150,61 @@ def test_switching_tool_mid_stroke_keeps_shape_without_auto_select():
         c.dispatch(E("move", (100 + 10 * i, 300), i * 0.03))
     c.do("erase")                                   # đổi công cụ giữa nét: giữ nét, không nhảy sang Chọn
     assert c.tool == "erase" and len(c.board.shapes) == 1 and c.tools["select"].selected is None
+
+
+def _hold(c, pose, t0, secs, center=(640, 400)):
+    for i in range(int(round(secs * 10)) + 1):
+        c.on_pose(pose, center, t0 + i / 10)
+
+
+def test_three_finger_pose_switches_to_draw_with_message(stroke):
+    c = _ctl()
+    c.do("select")
+    _hold(c, "three", 0.0, 0.5)
+    assert c.tool == "draw" and c.message == "Vẽ"
+
+
+def test_fist_pose_undoes_one_step(stroke):
+    c = _ctl()
+    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    stroke(c, [(100, 500), (200, 500), (300, 500)], t0=1.0)
+    _hold(c, "fist", 2.0, 2.0)                          # giữ lâu vẫn chỉ Undo 1 bước
+    assert len(c.board.shapes) == 1 and c.message == "Đã hoàn tác"
+
+
+def test_poses_ignored_while_panel_open_or_pressing(stroke):
+    from airgeo.interaction.pointer import PointerEvent as E
+    c = _ctl()
+    c.dispatch(E("down", (300, 300), 0.0))              # đang chụm vẽ
+    _hold(c, "rock", 0.0, 1.0)
+    assert c.tool == "draw"
+    c.dispatch(E("up", (310, 300), 1.0))
+    c.board.shapes.append({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)], "raw": [], "id": 9, "locked": False})
+    c.panel.open(c.board.shapes[-1], "AB", c.board)
+    _hold(c, "rock", 2.0, 1.0)
+    assert c.tool == "draw"
+
+
+def test_long_palm_opens_menu_which_takes_presses(press):
+    c = _ctl()
+    _hold(c, "palm", 0.0, 1.5)
+    assert c.tool == "select" and c.menu.is_open and c.gesture_for((640, 400)) == "two_finger"
+    unit = dict(c.menu.positions())["unit"]
+    press(c, unit, 2.0)
+    assert c.board.unit == "dm" and not c.menu.is_open and c.board.shapes == []
+
+
+def test_palm_again_closes_menu_without_reopening():
+    c = _ctl()
+    _hold(c, "palm", 0.0, 1.5)
+    c.on_pose(None, (640, 400), 1.8)
+    c.on_pose(None, (640, 400), 2.0)
+    _hold(c, "palm", 2.1, 2.0)
+    assert not c.menu.is_open
+
+
+def test_menu_closes_after_timeout():
+    c = _ctl()
+    _hold(c, "palm", 0.0, 1.5)
+    c.on_pose(None, (640, 400), 8.0)
+    assert not c.menu.is_open

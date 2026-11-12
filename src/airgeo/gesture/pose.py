@@ -33,6 +33,10 @@ class PoseTrigger:
     def reset(self):
         self.pose, self.start, self.seen, self.fired = None, 0.0, 0.0, 0
 
+    def consume(self):
+        """Bỏ các mốc còn lại của lần giữ này (đã dùng tư thế cho việc khác)."""
+        self.fired = len(self.stages.get(self.pose, []))
+
     def update(self, pose, t):
         if pose is None:
             if self.pose is not None and t - self.seen > self.grace:
