@@ -16,9 +16,9 @@ from airgeo.geometry.units import UNITS
 
 def make_shape(raw, smart):
     """raw: [(x, y, t)] của nét. Giữ lại raw để nhận dạng lại khi bật/tắt Smart Shape."""
-    shape = straighten(recognize(raw)) if smart else {"kind": "free", "pts": [(x, y) for x, y, _ in raw]}
+    shape = recognize(raw) if smart else {"kind": "free", "pts": [(x, y) for x, y, _ in raw]}
     shape["raw"] = raw
-    return shape
+    return straighten(shape) if smart else shape
 
 
 def describe_result(shape):

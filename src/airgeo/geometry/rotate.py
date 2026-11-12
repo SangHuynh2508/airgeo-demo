@@ -2,6 +2,7 @@
 import math
 
 SNAP_KINDS = ("line", "triangle", "rect")
+SNAP_DEG = 8.0      # cạnh lệch trục <= bấy nhiêu độ thì hít thẳng (cả lúc vẽ lẫn lúc xoay)
 
 
 def edge_angle(a, b):
@@ -32,9 +33,13 @@ def snap_delta(shape, tol):
     return min((d for d in deltas if abs(d) <= tol), key=abs, default=0)
 
 
-def straighten(shape, tol=10.0):
-    """Hình nhận dạng được mà lệch trục <= tol độ thì xoay cho thẳng (nét gốc raw giữ nguyên)."""
+def straighten(shape, tol=SNAP_DEG):
+    """Hình nhận dạng được mà lệch trục <= tol độ thì xoay cho thẳng. Xoay cả nét gốc raw (nếu có) để bật / tắt
+    Smart nhận dạng lại ra đúng hình này – nếu không, góc lệch ẩn trong raw sẽ cộng vào mỗi lần xoay sau đó."""
     d = snap_delta(shape, tol)
     if d:
-        shape["pts"] = rotate_points(shape["pts"], d, center(shape))
+        c = center(shape)
+        shape["pts"] = rotate_points(shape["pts"], d, c)
+        if "raw" in shape:
+            shape["raw"] = rotate_points(shape["raw"], d, c)
     return shape

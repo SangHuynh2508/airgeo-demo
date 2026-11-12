@@ -11,12 +11,12 @@ Cả lần kéo / xoay là 1 bước Undo (begin() 1 lần lúc bắt đầu). R
 import math
 
 from airgeo.geometry.construct import label_anchors
-from airgeo.geometry.rotate import center, rotate_points, snap_delta
+from airgeo.geometry.rotate import SNAP_DEG, center, rotate_points, snap_delta
 
 MEASURES = {"line": ["sides"], "triangle": ["sides", "angles", "perimeter", "area"],
             "rect": ["sides", "angles", "perimeter", "area"], "circle": ["radius", "perimeter", "area"]}
 MENU_W, MENU_H, MENU_GAP = 150, 44, 8
-HANDLE_OFFSET, SNAP_DEG = 32, 8
+HANDLE_OFFSET = 32
 
 
 class SelectTool:
