@@ -8,16 +8,12 @@ scale = độ dài hiện tại của cạnh đó (px) / giá trị (cm) -> cạ
 nếu vậy mà hình tràn màn hình thì tỉ lệ tự thu nhỏ tới khi vừa.
 """
 from airgeo.geometry.construct import OUT_OF_SCREEN, build, current_lengths, field_names
-from airgeo.geometry.units import fmt_length, to_px, to_units
+from airgeo.geometry.units import fmt_length, to_px, to_units, trim
 
 KEYS = [["7", "8", "9"], ["4", "5", "6"], ["1", "2", "3"], [".", "0", "<-"]]
 MAX_LEN = 8
 GAP = 10
 FIELD_W = 140
-
-
-def _trim(v):
-    return f"{v:.2f}".rstrip("0").rstrip(".")
 
 
 class EditPanel:
@@ -57,7 +53,7 @@ class EditPanel:
         self.fields = field_names(self.kind)
         cur = current_lengths(shape)
         self.hints = {f: f"~{cur[f]:.0f}px" for f in self.fields}
-        self.values = {f: "" if board.scale is None else _trim(to_units(cur[f], board.unit, board.scale))
+        self.values = {f: "" if board.scale is None else trim(to_units(cur[f], board.unit, board.scale))
                        for f in self.fields}
         self.focus, self.fresh = field, True
         self.error, self.reset_scale, self.is_open = "", False, True

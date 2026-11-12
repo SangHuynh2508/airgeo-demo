@@ -20,3 +20,8 @@ def fmt_area(px2, scale, unit):
     if scale is None:
         return f"{px2:.0f}px2"
     return f"{px2 / (scale * TO_CM[unit]) ** 2:.2f} {unit}2"
+
+
+def trim(v):
+    """Số gọn: 2 chữ số thập phân, bỏ 0 thừa (5, 2.4, 18.85)."""
+    return f"{v:.2f}".rstrip("0").rstrip(".")
