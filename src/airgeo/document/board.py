@@ -36,11 +36,13 @@ class Board:
         self._next_id = 1
 
     def begin(self):
-        """Lưu bản sao trước 1 thao tác. Gọi đúng 1 lần cho mỗi thao tác."""
+        """Lưu bản sao trước 1 thao tác. Gọi đúng 1 lần cho mỗi thao tác. Trả về bản sao (để undo(only=...))."""
         self._history.append((copy.deepcopy(self.shapes), self.scale, self.smart))
+        return self._history[-1]
 
-    def undo(self):
-        if not self._history:
+    def undo(self, only=None):
+        """Gỡ bước cuối. only: chỉ gỡ nếu bước cuối đúng là bản sao này (đã bị U / Xóa hết gỡ mất thì thôi)."""
+        if not self._history or (only is not None and self._history[-1] is not only):
             return
         self.shapes, self.scale, smart_then = self._history.pop()
         if smart_then != self.smart:

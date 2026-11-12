@@ -116,8 +116,10 @@ def draw_canvas(frame, shapes, cur, active=None):
     """Vẽ các nét lên lớp canvas đen rồi trộn lên khung hình. Số đo chỉ vẽ khi được yêu cầu
     (cột "Tinh:" của công cụ Chọn, xem draw_tool_overlay). Có active (id hình đang chọn) thì hình khác vẽ mờ."""
     canvas = np.zeros_like(frame)
+    if not any(s.get("id") == active for s in shapes):
+        active = None       # hình đang chọn vừa bị Undo / xóa: không làm mờ cả bảng
     for s in shapes:
-        if active is None or s["id"] == active:
+        if active is None or s.get("id") == active:
             draw_shape(canvas, s)
         else:
             draw_shape(canvas, s, tuple(round(c * DIM) for c in (FREE_COLOR if s["kind"] == "free" else SHAPE_COLOR)), 2)

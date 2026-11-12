@@ -183,3 +183,10 @@ def test_blocked_drag_paints_shape_red():
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
     assert tuple(frame[300, 150]) == (0, 0, 255)
+
+
+def test_canvas_ignores_active_id_that_no_longer_exists():
+    a = {"kind": "line", "pts": [(100, 100), (300, 100)], "id": 1}
+    bright = draw_canvas(np.zeros((400, 400, 3), np.uint8), [a], None)
+    stale = draw_canvas(np.zeros((400, 400, 3), np.uint8), [a], None, active=9)   # hình đã bị Undo
+    assert (stale == bright).all()

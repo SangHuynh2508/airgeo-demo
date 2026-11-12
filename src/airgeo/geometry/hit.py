@@ -51,8 +51,20 @@ def outline_points(shape, step=8.0):
     return out
 
 
+def _bbox(s):
+    if s["kind"] == "circle":
+        (cx, cy), r = s["center"], s["radius"]
+        return cx - r, cy - r, cx + r, cy + r
+    xs, ys = [p[0] for p in s["pts"]], [p[1] for p in s["pts"]]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 def overlaps(a, b, margin=4.0):
     """2 hình đè nhau: viền cắt / chạm (cách <= margin px) hoặc hình này nằm trong hình kia.
-    ponytail: lấy mẫu viền O(điểm x cạnh), đủ cho vài chục hình; đổi sang giao đoạn thẳng nếu chậm."""
+    Khung bao cách nhau quá margin thì chắc chắn không đè (loại nhanh – chạy mỗi frame lúc kéo).
+    ponytail: lấy mẫu viền O(điểm x cạnh) cho cặp gần nhau; đổi sang giao đoạn thẳng nếu chậm."""
+    (ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1) = _bbox(a), _bbox(b)
+    if ax0 > bx1 + margin or bx0 > ax1 + margin or ay0 > by1 + margin or by0 > ay1 + margin:
+        return False
     return (any(distance_to_shape(p, b) <= margin or contains(p, b) for p in outline_points(a))
             or any(contains(p, a) for p in outline_points(b)))

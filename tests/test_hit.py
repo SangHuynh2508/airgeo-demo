@@ -1,4 +1,4 @@
-from airgeo.geometry.hit import distance_to_shape
+from airgeo.geometry.hit import distance_to_shape, overlaps
 
 LINE = {"kind": "line", "pts": [(100, 100), (300, 100)]}
 
@@ -51,3 +51,13 @@ def test_overlaps_detects_crossing_inside_and_touching_only():
     assert not overlaps(rect, far) and overlaps(rect, cross) and overlaps(cross, rect)
     assert overlaps(rect, inner) and overlaps(inner, rect) and overlaps(rect, touch) and not overlaps(rect, near)
     assert overlaps(big, far) and overlaps(far, big)
+
+
+def test_overlaps_is_fast_for_distant_long_free_strokes():
+    import time
+    free = [{"kind": "free", "pts": [(60 * i + k * 0.3, 600 + (k % 7)) for k in range(150)], "id": i}
+            for i in range(20)]
+    circle = {"kind": "circle", "pts": [], "center": (640.0, 200.0), "radius": 80.0, "id": 99}
+    t = time.perf_counter()
+    assert not any(overlaps(circle, f) for f in free)
+    assert time.perf_counter() - t < 0.02                 # 1 lần di chuyển khi kéo: phải dưới 1 frame

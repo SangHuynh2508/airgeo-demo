@@ -148,3 +148,43 @@ def test_drop_on_another_shape_snaps_back_and_leaves_no_undo_step(stroke):
     assert c.board.shapes[1]["pts"][0] == (100, 500) and not sel.blocked and "de len" in c.message
     c.do("undo")
     assert len(c.board.shapes) == 1                     # Undo tiếp theo gỡ nét thứ 2, không phải lần kéo
+
+
+def _blocked_drag(stroke):
+    c = Controller(Config(), 1280, 720)
+    for i, y in enumerate((300, 500, 650)):
+        stroke(c, [(100, y), (200, y), (300, y)], t0=i)
+    c.do("select")
+    c.dispatch(E("down", (200, 500), 5.0))
+    c.dispatch(E("move", (200, 400), 5.03))
+    c.dispatch(E("move", (200, 302), 5.06))
+    assert c.tools["select"].blocked
+    return c
+
+
+def test_undo_key_mid_blocked_drag_does_not_undo_twice(stroke):
+    c = _blocked_drag(stroke)
+    c.key(ord("u"), 5.08)                                # U gỡ lần kéo rồi; nhả tay không được gỡ thêm
+    c.dispatch(E("up", (200, 302), 5.1))
+    assert [s["id"] for s in c.board.shapes] == [1, 2, 3]
+
+
+def test_clear_mid_blocked_drag_stays_cleared(stroke):
+    c = _blocked_drag(stroke)
+    c.key(ord("c"), 5.08)
+    c.dispatch(E("up", (200, 302), 5.1))
+    assert c.board.shapes == []
+
+
+def test_dragged_shape_undone_mid_drag_does_not_crash(stroke):
+    c = Controller(Config(), 1280, 720)
+    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    stroke(c, [(100, 500), (200, 500), (300, 500)], t0=0.5)
+    c.do("select")
+    c.dispatch(E("down", (200, 500), 1.0))
+    c.dispatch(E("move", (200, 550), 1.03))
+    c.key(ord("u"), 1.04)
+    c.key(ord("u"), 1.05)                                # gỡ luôn nét đang kéo
+    c.dispatch(E("move", (200, 600), 1.06))
+    c.dispatch(E("up", (200, 600), 1.1))
+    assert [s["id"] for s in c.board.shapes] == [1]

@@ -26,6 +26,7 @@ class SelectTool:
         self._grab = None           # điểm bắt đầu chụm trên hình (None = lần chụm này không kéo gì)
         self._last = None
         self._dragging = False
+        self._snap = None           # bản sao Undo của lần kéo hiện tại
         self._clear_at = None       # điểm chạm vào chỗ trống: nhả tại đây thì bỏ chọn
         self.blocked = False        # hình đang kéo đè lên hình khác (tô đỏ; nhả lúc này thì bật về)
 
@@ -83,20 +84,21 @@ class SelectTool:
                 if math.dist(ev.pos, self._grab) <= self.drag_threshold:
                     return
                 self._dragging, self._last = True, self._grab
-                board.begin()
+                self._snap = board.begin()
             board.translate(self.selected, ev.pos[0] - self._last[0], ev.pos[1] - self._last[1])
             self._last = ev.pos
-            self.blocked = board.collides(board.get(self.selected), self.selected) is not None
+            shape = board.get(self.selected)       # None nếu U gỡ mất hình giữa lúc kéo
+            self.blocked = shape is not None and board.collides(shape, self.selected) is not None
         elif ev.kind == "up":
             if self._clear_at is not None:
                 self.selected, self.show = None, set()
             if self.blocked:
-                board.undo()        # gỡ đúng lần kéo này: hình về chỗ cũ, không để lại bước Undo
+                board.undo(self._snap)   # gỡ đúng lần kéo này: hình về chỗ cũ, không để lại bước Undo
                 ctl.notify("Khong tha duoc: de len hinh khac", ev.t)
             self._grab, self._dragging, self._clear_at, self.blocked = None, False, None, False
 
     def end(self, ctl):
         if self.blocked:
-            ctl.board.undo()        # đổi công cụ giữa lúc kéo đè: cũng bật về
+            ctl.board.undo(self._snap)   # đổi công cụ giữa lúc kéo đè: cũng bật về
         self.selected, self._grab, self._dragging, self._clear_at, self.blocked = None, None, False, None, False
         self.show = set()
