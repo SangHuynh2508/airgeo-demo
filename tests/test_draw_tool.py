@@ -1,7 +1,5 @@
-from types import SimpleNamespace
-
 from airgeo.config import Config
-from airgeo.document.board import Board
+from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerTracker
 from airgeo.pinch_filter import PinchFilter
 from airgeo.tools.draw import DrawTool
@@ -11,7 +9,7 @@ def _pipeline(smart=False):
     """Bàn tay giả -> PinchFilter (không lọc) -> PointerTracker -> DrawTool -> Board."""
     pf = PinchFilter(Config())
     pf.select_filter("none")
-    ctl = SimpleNamespace(board=Board())
+    ctl = Controller(Config(), 1280, 720)
     ctl.board.set_smart(smart)
     tool, pointer = DrawTool(), PointerTracker()
 

@@ -123,3 +123,30 @@ def test_gesture_depends_on_tool_and_place(button):
     c.do("draw")
     c.panel.is_open = True
     assert c.gesture_for((400, 400)) == "two_finger"
+
+
+def test_recognized_shape_is_selected_and_tool_becomes_select(stroke):
+    c = _ctl()
+    c.board.set_smart(True)
+    stroke(c, [(100 + 10 * i, 300) for i in range(21)])           # đoạn thẳng -> nhận dạng được
+    assert c.board.shapes[0]["kind"] == "line"
+    assert c.tool == "select" and c.tools["select"].selected == c.board.shapes[0]["id"]
+
+
+def test_free_stroke_stays_in_draw_and_overlap_is_refused(stroke):
+    c = _ctl()
+    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    assert c.tool == "draw" and len(c.board.shapes) == 1
+    stroke(c, [(200, 250), (200, 300), (200, 350)], t0=1.0)       # cắt nét cũ
+    assert len(c.board.shapes) == 1 and c.message.startswith("Hinh moi de len") and c.message_until > 1.0
+
+
+def test_switching_tool_mid_stroke_keeps_shape_without_auto_select():
+    from airgeo.interaction.pointer import PointerEvent as E
+    c = _ctl()
+    c.board.set_smart(True)
+    c.dispatch(E("down", (100, 300), 0.0))
+    for i in range(1, 21):
+        c.dispatch(E("move", (100 + 10 * i, 300), i * 0.03))
+    c.do("erase")                                   # đổi công cụ giữa nét: giữ nét, không nhảy sang Chọn
+    assert c.tool == "erase" and len(c.board.shapes) == 1 and c.tools["select"].selected is None

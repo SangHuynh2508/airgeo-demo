@@ -11,10 +11,18 @@ class DrawTool:
         elif ev.kind == "move" and self.cur is not None:
             self.cur.append((ev.pos[0], ev.pos[1], ev.t))
         elif ev.kind == "up":
-            self.end(ctl)
+            self.end(ctl, select=True)
 
-    def end(self, ctl):
-        """Kết thúc nét đang vẽ (khi nhả, hoặc khi đổi công cụ giữa chừng). Nét < 2 điểm bị bỏ."""
-        if self.cur is not None and len(self.cur) >= 2:
-            ctl.board.add_stroke(self.cur)
-        self.cur = None
+    def end(self, ctl, select=False):
+        """Kết thúc nét đang vẽ (khi nhả, hoặc khi đổi công cụ giữa chừng). Nét < 2 điểm bị bỏ.
+        Nét đè hình khác bị bỏ + thông báo; nhả tay ra hình nhận dạng được thì chuyển sang Chọn hình đó."""
+        raw, self.cur = self.cur, None
+        if raw is None or len(raw) < 2:
+            return
+        shape = ctl.board.add_stroke(raw)
+        if shape is None:
+            ctl.notify("Hinh moi de len hinh khac - ve o cho trong", raw[-1][2])
+        elif select and shape["kind"] != "free":
+            # hình nhận dạng được: chọn luôn để đo / kéo / sửa số; nét tự do thì vẽ tiếp
+            ctl.set_tool("select")
+            ctl.tools["select"].selected = shape["id"]

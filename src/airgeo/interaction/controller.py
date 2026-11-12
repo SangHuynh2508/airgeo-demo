@@ -24,6 +24,7 @@ class Controller:
         self.tools = {"draw": DrawTool(), "select": SelectTool(config, width), "erase": EraseTool(config)}
         self.tool = "draw"
         self._owner = None          # ai nhận lần chụm hiện tại: "panel" | "toolbar" | "tool"
+        self.message, self.message_until = "", 0.0   # thông báo ngắn trên màn hình (vd. bị chặn đè hình)
 
     def dispatch(self, ev):
         if ev.kind == "down":
@@ -71,6 +72,9 @@ class Controller:
         if name != self.tool:
             self.tools[self.tool].end(self)
             self.tool = name
+
+    def notify(self, msg, t, seconds=2.0):
+        self.message, self.message_until = msg, t + seconds
 
     def key(self, code, t):
         """Phím tắt. Trả về True nếu phím đã được dùng (app khỏi xử lý tiếp).

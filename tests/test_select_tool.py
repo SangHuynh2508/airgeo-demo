@@ -131,3 +131,20 @@ def test_stray_press_while_moving_to_menu_keeps_selection(stroke, press):
     _, (x0, y0, x1, y1) = sel.menu(c.board.get(1))[0]
     press(c, ((x0 + x1) / 2, (y0 + y1) / 2), t=2.0)
     assert sel.show == {"sides"}
+
+
+def test_drop_on_another_shape_snaps_back_and_leaves_no_undo_step(stroke):
+    c = Controller(Config(), 1280, 720)
+    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    stroke(c, [(100, 500), (200, 500), (300, 500)], t0=1.0)
+    c.do("select")
+    sel = c.tools["select"]
+    c.dispatch(E("down", (200, 500), 2.0))
+    c.dispatch(E("move", (200, 400), 2.03))
+    assert not sel.blocked
+    c.dispatch(E("move", (200, 302), 2.06))             # đè lên đoạn trên
+    assert sel.blocked
+    c.dispatch(E("up", (200, 302), 2.1))
+    assert c.board.shapes[1]["pts"][0] == (100, 500) and not sel.blocked and "de len" in c.message
+    c.do("undo")
+    assert len(c.board.shapes) == 1                     # Undo tiếp theo gỡ nét thứ 2, không phải lần kéo

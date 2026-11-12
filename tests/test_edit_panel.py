@@ -179,3 +179,12 @@ def test_first_scale_shrinks_until_shape_fits_screen():
     side = polygon_metrics(board.shapes[0]["pts"])["sides"]
     assert side[1] / side[0] == pytest.approx(9 / 5) and side[0] / board.scale == pytest.approx(5)
     assert all(70 <= y <= 720 for _, y in board.shapes[0]["pts"])
+
+
+def test_resize_into_neighbour_is_refused():
+    board, p, _ = _setup(scale=100.0)
+    board.shapes.append({"kind": "circle", "pts": [], "center": (640.0, 180.0), "radius": 30.0, "raw": [],
+                         "id": 2, "locked": False})        # cách đỉnh C 40 px
+    _fill(p, {"AB": "3", "BC": "3.5", "CA": "3.5"})       # tam giác cao lên, đỉnh C lọt vào hình tròn
+    assert not p.submit(board, BOUNDS) and p.error.startswith("Hinh de len hinh khac") and p.is_open
+    assert board.shapes[0]["pts"][2] == (640.0, 250.0)

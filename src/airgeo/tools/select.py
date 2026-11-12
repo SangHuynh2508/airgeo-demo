@@ -27,6 +27,7 @@ class SelectTool:
         self._last = None
         self._dragging = False
         self._clear_at = None       # điểm chạm vào chỗ trống: nhả tại đây thì bỏ chọn
+        self.blocked = False        # hình đang kéo đè lên hình khác (tô đỏ; nhả lúc này thì bật về)
 
     def menu(self, shape):
         """[(số đo, (x0, y0, x1, y1))] – các nút trong cột "Tinh:" cho loại hình này."""
@@ -85,11 +86,17 @@ class SelectTool:
                 board.begin()
             board.translate(self.selected, ev.pos[0] - self._last[0], ev.pos[1] - self._last[1])
             self._last = ev.pos
+            self.blocked = board.collides(board.get(self.selected), self.selected) is not None
         elif ev.kind == "up":
             if self._clear_at is not None:
                 self.selected, self.show = None, set()
-            self._grab, self._dragging, self._clear_at = None, False, None
+            if self.blocked:
+                board.undo()        # gỡ đúng lần kéo này: hình về chỗ cũ, không để lại bước Undo
+                ctl.notify("Khong tha duoc: de len hinh khac", ev.t)
+            self._grab, self._dragging, self._clear_at, self.blocked = None, False, None, False
 
     def end(self, ctl):
-        self.selected, self._grab, self._dragging, self._clear_at = None, None, False, None
+        if self.blocked:
+            ctl.board.undo()        # đổi công cụ giữa lúc kéo đè: cũng bật về
+        self.selected, self._grab, self._dragging, self._clear_at, self.blocked = None, None, False, None, False
         self.show = set()

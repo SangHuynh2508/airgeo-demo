@@ -129,6 +129,9 @@ class EditPanel:
                 scale *= 0.8
         else:
             return False
+        if board.collides(new, self.shape_id):
+            self.error = "Hinh de len hinh khac - nhap so nho hon"
+            return False
         board.apply_edit(self.shape_id, new, scale)
         self.close()
         return True
