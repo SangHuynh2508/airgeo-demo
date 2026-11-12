@@ -28,6 +28,7 @@ class Controller:
         self.tool = "draw"
         self.menu = RadialMenu(width, height, config.toolbar_height, config.confirm_window)
         self.poses = PoseTrigger()  # tư thế tay giữ yên -> lệnh (xem gesture/pose.py)
+        self._fist_ok = True        # False sau mỗi lần nhả: tay thả lỏng khép hờ sau khi vẽ không được là Undo
         self._owner = None          # ai nhận lần chụm hiện tại: "panel" | "toolbar" | "tool"
         self.message, self.message_until = "", 0.0   # thông báo ngắn trên màn hình (vd. bị chặn đè hình)
 
@@ -45,6 +46,7 @@ class Controller:
             owner = self._owner
         if ev.kind == "up":
             self._owner = None
+            self._fist_ok = False
         if owner == "panel":
             self.panel.on_event(ev, self)
         elif owner == "menu":
@@ -92,6 +94,10 @@ class Controller:
         if self.menu.expired(t):
             self.menu.close()
         if self._owner is not None or self.panel.is_open:
+            pose = None
+        if pose in ("three", "palm", "rock"):
+            self._fist_ok = True        # tay đã mở ra: nắm lại lần sau là có chủ đích
+        elif pose == "fist" and not self._fist_ok:
             pose = None
         action = self.poses.update(pose, t)
         if action is None:

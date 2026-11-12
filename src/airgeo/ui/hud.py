@@ -52,7 +52,7 @@ def draw_help(img):
         text(img, s, (10, h - 32 + 20 * i), 0.5, (220, 220, 220))
 
 
-LEGEND = ["3 ngón: Vẽ", "Xòe tay: Chọn  ·  giữ lâu: Menu", "Ngón trỏ + út: Xóa", "Nắm tay: Hoàn tác"]
+LEGEND = ["3 ngón: Vẽ", "Xòe tay: Chọn  ·  giữ lâu: Menu", "Ngón trỏ + út: Xóa", "Xòe tay rồi nắm lại: Hoàn tác"]
 
 
 def draw_legend(img):

@@ -59,11 +59,13 @@ class PinchDetector:
             self.ratio2d = math.dist(p[a], p[b]) / max(math.dist(p[0], p[9]), 1e-6)
             self.ratio3d = math.dist(hand[f"w{a}"], hand[f"w{b}"]) / max(math.dist(hand["w0"], hand["w9"]), 1e-6)
             self.ratio = self.ratio2d if self.mode == "2d" else self.ratio3d
-        # Cử chỉ 2 ngón chỉ tính khi cả 2 ngón duỗi (nắm tay thì 2 đầu ngón cũng sát nhau);
-        # ngón gập coi như frame không tin được -> đang bấm thì giữ `grace` giây rồi nhả
+        # Cử chỉ 2 ngón chỉ tính khi trỏ + giữa duỗi (nắm tay thì 2 đầu ngón cũng sát nhau) và áp út + út gập
+        # (xòe tay khép ngón / 3 ngón là tư thế ra lệnh, xem gesture/pose.py);
+        # không đúng dáng coi như frame không tin được -> đang bấm thì giữ `grace` giây rồi nhả
         ratio = self.ratio
         if hand is not None and self.gesture == "two_finger" and not (
-                _extended(hand["pts"], 8, 6) and _extended(hand["pts"], 12, 10)):
+                _extended(hand["pts"], 8, 6) and _extended(hand["pts"], 12, 10)
+                and not _extended(hand["pts"], 16, 14) and not _extended(hand["pts"], 20, 18)):
             ratio = None
 
         if not self.pinched:

@@ -168,6 +168,7 @@ def test_fist_pose_undoes_one_step(stroke):
     c = _ctl()
     stroke(c, [(100, 300), (200, 300), (300, 300)])
     stroke(c, [(100, 500), (200, 500), (300, 500)], t0=1.0)
+    _hold(c, "palm", 1.6, 0.2)                          # xòe tay rồi nắm lại
     _hold(c, "fist", 2.0, 2.0)                          # giữ lâu vẫn chỉ Undo 1 bước
     assert len(c.board.shapes) == 1 and c.message == "Đã hoàn tác"
 
@@ -208,3 +209,19 @@ def test_menu_closes_after_timeout():
     _hold(c, "palm", 0.0, 1.5)
     c.on_pose(None, (640, 400), 8.0)
     assert not c.menu.is_open
+
+
+def test_relaxed_fist_right_after_drawing_does_not_undo(stroke):
+    c = _ctl()
+    c.board.set_smart(True)
+    stroke(c, [(100 + 10 * i, 300) for i in range(21)], t0=0.0)   # nhả tay lúc ~0.6 s
+    _hold(c, "fist", 0.7, 3.0)                                     # tay khép hờ suốt lúc đang nói
+    assert len(c.board.shapes) == 1
+    _hold(c, "palm", 3.8, 0.2)                                     # xòe tay rồi nắm lại: Undo có chủ đích
+    _hold(c, "fist", 4.1, 0.8)
+    assert c.board.shapes == []
+
+
+def test_menu_opens_with_close_item_above_the_hand():
+    from airgeo.interaction.radial_menu import ITEMS
+    assert ITEMS[0] == "close"          # đầu ngón trỏ nằm trên tâm bàn tay: áp 2 ngón ngay chỉ đóng menu

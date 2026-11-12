@@ -3,7 +3,8 @@
 Chỉ xét 4 ngón trỏ, giữa, áp út, út (ngón cái hay bị che / nhận sai). Ngón duỗi = đầu ngón xa cổ tay hơn khớp
 giữa ngón (_extended), nên tay xoay hướng nào cũng nhận được.
   three (trỏ + giữa + áp út) -> Vẽ;  palm (xòe 4 ngón) -> Chọn, giữ tiếp -> menu tròn;
-  rock (trỏ + út)           -> Xóa;  fist (nắm tay)    -> Undo (giữ lâu hơn: tay thả lỏng hay khép hờ).
+  rock (trỏ + út)           -> Xóa;  fist (nắm tay)    -> Undo (giữ lâu hơn: tay thả lỏng hay khép hờ;
+  sau khi vẽ / bấm phải xòe tay ra rồi mới nắm lại – xem Controller.on_pose).
 Trỏ 1 ngón / 2 ngón là tư thế làm việc (di con trỏ, áp 2 ngón bấm) nên không phải lệnh.
 """
 from airgeo.gesture.pinch import _extended

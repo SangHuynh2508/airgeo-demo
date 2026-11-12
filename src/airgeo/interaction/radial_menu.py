@@ -2,7 +2,8 @@
 để chọn. Bấm ra ngoài / mục Đóng / quá TIMEOUT giây thì đóng. "Xóa hết" bấm 2 lần mới xóa."""
 import math
 
-ITEMS = ["unit", "smart", "clear", "close"]      # trên, phải, dưới, trái
+ITEMS = ["close", "smart", "clear", "unit"]      # trên, phải, dưới, trái – Đóng ở trên: lúc mở menu đầu ngón
+                                                 # trỏ nằm ngay trên tâm, áp 2 ngón vội chỉ đóng menu
 RADIUS, ITEM_R, TIMEOUT = 120, 48, 6.0
 
 

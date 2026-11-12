@@ -68,3 +68,16 @@ def test_gesture_is_kept_until_release(make_hand):
     pf.step(make_hand(100, 200, ratio=0.1), 0.0, want="pinch")
     res = pf.step(make_hand(100, 200, ratio=0.1), 0.03, want="two_finger")   # đang vẽ mà kéo vào thanh nút
     assert res.pinched and pf.pinch.gesture == "pinch"
+
+
+def test_fingers_together_palm_is_not_a_two_finger_press(make_two_finger):
+    pf = PinchFilter(Config())
+    pf.select_filter("none")
+    h = make_two_finger(300, 200, ratio=0.1)
+    pts = list(h["pts"])
+    pts[16], pts[14], pts[20], pts[18] = (320, 205), (320, 235), (335, 210), (335, 240)   # áp út + út duỗi
+    palm = dict(h, pts=pts)
+    pf.step(make_two_finger(300, 200, ratio=0.6), 0.0, want="two_finger")
+    assert not pf.step(palm, 0.1, want="two_finger").pinched       # xòe tay khép ngón: là tư thế, không phải bấm
+    pf.step(make_two_finger(300, 200, ratio=0.6), 0.2, want="two_finger")
+    assert pf.step(h, 0.3, want="two_finger").pinched
