@@ -37,3 +37,17 @@ def test_contains_closed_shapes_only():
     assert contains((20, 20), tri) and not contains((80, 80), tri)
     assert contains((10, 0), {"kind": "circle", "pts": [], "center": (0, 0), "radius": 50})
     assert not contains((50, 0), LINE) and not contains((50, 50), {"kind": "free", "pts": [(0, 0), (100, 100)]})
+
+
+def test_overlaps_detects_crossing_inside_and_touching_only():
+    from airgeo.geometry.hit import overlaps
+    rect = {"kind": "rect", "pts": [(100, 100), (300, 100), (300, 300), (100, 300)]}
+    far = {"kind": "line", "pts": [(400, 100), (400, 300)]}
+    cross = {"kind": "line", "pts": [(50, 200), (350, 210)]}
+    inner = {"kind": "circle", "pts": [], "center": (200, 200), "radius": 40}
+    touch = {"kind": "line", "pts": [(302, 120), (302, 280)]}
+    near = {"kind": "line", "pts": [(320, 120), (320, 280)]}
+    big = {"kind": "circle", "pts": [], "center": (650, 200), "radius": 250}   # cắt đoạn far tại x = 400
+    assert not overlaps(rect, far) and overlaps(rect, cross) and overlaps(cross, rect)
+    assert overlaps(rect, inner) and overlaps(inner, rect) and overlaps(rect, touch) and not overlaps(rect, near)
+    assert overlaps(big, far) and overlaps(far, big)

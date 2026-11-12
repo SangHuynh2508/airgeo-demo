@@ -6,7 +6,9 @@ from airgeo.interaction.pointer import PointerEvent as E
 def _two_lines(stroke):
     c = Controller(Config(), 1280, 720)
     stroke(c, [(100, 300), (200, 300), (300, 300)])     # ngang
-    stroke(c, [(200, 250), (200, 300), (200, 350)])     # dọc, vẽ sau -> nằm trên
+    # dọc, nằm trên, cắt đường ngang: vẽ thì bị chặn đè nên đặt thẳng vào bảng (vẫn xảy ra khi bật Smart)
+    c.board.shapes.append({"kind": "free", "pts": [(200, 250), (200, 300), (200, 350)],
+                      "raw": [(200, 250, 0.0), (200, 300, 0.0), (200, 350, 0.0)], "id": 2, "locked": False})
     c.do("erase")
     return c
 

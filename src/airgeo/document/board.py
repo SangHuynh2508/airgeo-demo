@@ -7,7 +7,7 @@ hình tròn thêm center, radius.
 import copy
 from collections import deque
 
-from airgeo.geometry.hit import contains, distance_to_shape
+from airgeo.geometry.hit import contains, distance_to_shape, overlaps
 from airgeo.geometry.measure import measure
 from airgeo.geometry.recognize import recognize
 from airgeo.geometry.units import UNITS
@@ -52,13 +52,20 @@ class Board:
         return next((s for s in self.shapes if s["id"] == sid), None)
 
     def add_stroke(self, raw):
-        self.begin()
+        """Thêm nét; trả None (không thêm, không lưu bước Undo) nếu hình mới đè lên hình đã có."""
         shape = make_shape(raw, self.smart)
+        if self.collides(shape):
+            return None
+        self.begin()
         shape["id"], shape["locked"] = self._next_id, False
         self._next_id += 1
         self.shapes.append(shape)
         self.last_info = describe_result(shape)
         return shape
+
+    def collides(self, shape, ignore_id=None):
+        """Hình đầu tiên bị shape đè lên (bỏ qua hình ignore_id – chính nó khi kéo / sửa), None nếu không đè."""
+        return next((s for s in self.shapes if s["id"] != ignore_id and overlaps(shape, s)), None)
 
     def remove(self, sid):
         if self.get(sid) is not None:

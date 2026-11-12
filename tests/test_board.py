@@ -73,7 +73,7 @@ def test_apply_edit_is_one_undo_step_including_scale():
 def test_set_smart_rerecognizes_only_unlocked():
     b = Board()
     b.add_stroke(square_raw())
-    b.add_stroke(square_raw())
+    b.add_stroke([(x + 300, y, t) for x, y, t in square_raw()])    # hình vuông thứ 2 ở bên phải, không đè
     b.shapes[1]["locked"] = True      # hình đã sửa số đo
     b.set_smart(True)
     assert [s["kind"] for s in b.shapes] == ["rect", "free"] and [s["id"] for s in b.shapes] == [1, 2]
@@ -111,8 +111,9 @@ def test_cycle_unit():
 def test_shape_at_prefers_topmost_and_misses_far():
     b = Board()
     b.add_stroke(line_raw(300))
-    top = b.add_stroke([(200, 250 + 10 * i, i / 30) for i in range(11)])
-    assert b.shape_at((200, 300), 15)["id"] == top["id"]
+    b.shapes.append({"kind": "free", "pts": [(200, 250), (200, 300), (200, 350)],
+                      "raw": [(200, 250, 0.0), (200, 300, 0.0), (200, 350, 0.0)], "id": 2, "locked": False})                   # cắt đoạn ngang, nằm trên (vẽ thì bị chặn đè)
+    assert b.shape_at((200, 300), 15)["id"] == 2
     assert b.shape_at((120, 310), 15)["id"] == 1
     assert b.shape_at((600, 600), 15) is None
 
@@ -127,3 +128,11 @@ def test_shape_at_inside_prefers_edge_then_smaller_shape():
     assert b.shape_at((200, 200), 15)["id"] == 2  # chỉ trong hình lớn
     assert b.shape_at((345, 300), 15)["id"] == 1  # sát cạnh hình tròn
     assert b.shape_at((600, 600), 15) is None
+
+
+def test_add_stroke_rejects_overlap_without_undo_step():
+    b = Board()
+    b.add_stroke(line_raw(300))
+    assert b.add_stroke([(200, 250 + 10 * i, i / 30) for i in range(11)]) is None   # cắt đoạn ngang
+    assert len(b.shapes) == 1 and len(b._history) == 1
+    assert b.add_stroke(line_raw(400)) is not None and b.collides(b.shapes[0], ignore_id=1) is None
