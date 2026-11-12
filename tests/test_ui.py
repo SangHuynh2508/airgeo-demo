@@ -102,3 +102,66 @@ def test_canvas_draws_no_measurements_until_asked():
     blank = np.zeros((720, 1280, 3), np.uint8)
     draw_measurements(blank, circle, show=set())
     assert not blank.any()
+
+
+def _selected(shape, show, height=720):
+    c = Controller(Config(), 1280, height)
+    c.board.shapes.append(dict(shape, raw=[], id=1, locked=False))
+    c.board.scale = 100.0
+    c.do("select")
+    sel = c.tools["select"]
+    sel.selected, sel.show = 1, set(show)
+    return c, sel
+
+
+TRI_345 = {"kind": "triangle", "pts": [(300.0, 500.0), (600.0, 500.0), (600.0, 100.0)]}
+
+
+def test_formula_panel_only_after_pressing_perimeter_or_area():
+    from airgeo.ui.render import draw_tool_overlay
+    c, sel = _selected(TRI_345, {"sides"})
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    below = sel.menu(c.board.get(1))[-1][1][3] + 10
+    assert not frame[below:690, 1000:1270].any()            # chỉ Cạnh: chưa có bảng công thức
+    sel.show = {"perimeter", "area"}
+    draw_tool_overlay(frame, c)
+    assert frame[below:690, 1000:1270].any()
+
+
+def test_triangle_area_draws_dashed_height_also_when_obtuse():
+    from airgeo.ui.render import draw_tool_overlay
+    acute = {"kind": "triangle", "pts": [(300.0, 500.0), (700.0, 500.0), (450.0, 200.0)]}   # chân (450, 500)
+    c, sel = _selected(acute, {"perimeter"})
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    assert not frame[350, 450].any()                        # chưa bật Diện tích: không có đường cao
+    sel.show = {"area"}
+    draw_tool_overlay(frame, c)
+    assert frame[350, 450].any()
+    c, _ = _selected({"kind": "triangle", "pts": [(300.0, 500.0), (500.0, 500.0), (650.0, 300.0)]}, {"area"})
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)                             # tam giác tù: chân (650, 500) ngoài AB
+    assert frame[500, 580:640].any() and frame[400, 650].any()
+
+
+def test_formula_panel_fits_small_frame_and_skips_line():
+    from airgeo.ui.render import draw_tool_overlay
+    c, _ = _selected(TRI_345, {"perimeter", "area"}, height=480)
+    frame = np.zeros((480, 640, 3), np.uint8)
+    from airgeo.ui.render import draw_formulas
+    x0, y0, x1, y1 = draw_formulas(frame, c.board.get(1), c.tools["select"], 100.0, "cm")
+    assert y1 <= 480 - 40 and x1 <= c.tools["select"].menu_x  # khung thấp: bảng sang trái cột nút, đủ chỗ
+    c, sel = _selected({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)]}, {"sides"})
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    below = sel.menu(c.board.get(1))[-1][1][3] + 10
+    assert not frame[below:690, 1000:1270].any()            # đoạn thẳng: không có bảng công thức
+
+
+def test_perimeter_and_area_are_not_duplicated_on_the_shape():
+    from airgeo.ui.render import draw_tool_overlay
+    c, sel = _selected(TRI_345, {"perimeter", "area"})
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    assert not frame[345:385, 455:560].any()                # chỗ nhãn P= / S= cũ quanh trọng tâm (500, 366)

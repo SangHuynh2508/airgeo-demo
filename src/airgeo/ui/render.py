@@ -3,14 +3,19 @@
 Cách trộn lớp canvas lên khung hình webcam (addWeighted) lấy từ paint.py của
 AI-Virtual-Painter (MIT, Sagnik Barman): https://github.com/hanessn1/AI-Virtual-Painter
 """
+import math
+
 import cv2
 import numpy as np
 
 from airgeo.geometry.construct import label_anchors
+from airgeo.geometry.formulas import formula, triangle_height
 from airgeo.geometry.measure import measure
 from airgeo.geometry.units import fmt_area, fmt_length
 from airgeo.gesture.pinch import draw_point
+from airgeo.tools.select import MENU_W
 from airgeo.tracking.hand_tracker import CONNECTIONS
+from airgeo.ui.text import put_text, text_size
 
 FREE_COLOR = (255, 255, 255)
 SHAPE_COLOR = (0, 220, 255)
@@ -161,7 +166,8 @@ def draw_tool_overlay(img, ctl):
         return
     if ctl.tool == "select":
         draw_selection(img, shape)
-        draw_measurements(img, shape, ctl.board.scale, ctl.board.unit, tool.show)
+        # chu vi / diện tích nằm trong bảng công thức, không ghi lại trên hình
+        draw_measurements(img, shape, ctl.board.scale, ctl.board.unit, tool.show - {"perimeter", "area"})
         menu = tool.menu(shape)
         if menu:
             x0, y0 = menu[0][1][:2]
@@ -169,5 +175,73 @@ def draw_tool_overlay(img, ctl):
         for k, rect in menu:
             label = "Do dai" if shape["kind"] == "line" else MEASURE_LABELS[k]
             draw_button(img, rect, label, on=k in tool.show)
+        if shape["kind"] == "triangle" and "area" in tool.show:
+            draw_height(img, shape["pts"])
+        draw_formulas(img, shape, tool, ctl.board.scale, ctl.board.unit)
     else:
         draw_shape(img, shape, ERASE_COLOR, 6)
+
+
+# Bảng công thức: tiêu đề vàng nhỏ, công thức trắng, thế số xám (phụ), kết quả đậm và lớn hơn (dòng cần đọc)
+FORMULA_STYLE = [(-2, (0, 220, 255), False), (0, (255, 255, 255), False), (0, (200, 200, 200), False),
+                 (2, (255, 255, 255), True)]     # (chênh cỡ chữ, màu BGR, đậm) cho từng dòng của 1 khối
+PANEL_PAD, BLOCK_GAP = 10, 14
+
+
+def dashed_line(img, p, q, color, dash=8):
+    n = max(1, int(math.dist(p, q) // dash))
+    for i in range(0, n, 2):
+        a = (p[0] + (q[0] - p[0]) * i / n, p[1] + (q[1] - p[1]) * i / n)
+        b = (p[0] + (q[0] - p[0]) * (i + 1) / n, p[1] + (q[1] - p[1]) * (i + 1) / n)
+        cv2.line(img, ip(a), ip(b), color, 2, cv2.LINE_AA)
+
+
+def draw_height(img, pts):
+    """Đường cao nét đứt từ C xuống AB; chân ngoài đoạn AB (tam giác tù) thì kéo dài AB bằng nét đứt."""
+    c, foot, h = triangle_height(pts)
+    if h < 1:
+        return
+    a, b = pts[0], pts[1]
+    if math.dist(a, foot) + math.dist(foot, b) > math.dist(a, b) + 1:
+        dashed_line(img, min((a, b), key=lambda p: math.dist(p, foot)), foot, SELECT_COLOR)
+    dashed_line(img, c, foot, SELECT_COLOR)
+    cv2.circle(img, ip(foot), 4, SELECT_COLOR, -1)
+    text(img, "h", ip(((c[0] + foot[0]) / 2 + 8, (c[1] + foot[1]) / 2)), 0.6, SELECT_COLOR)
+
+
+def _block_size(block, size):
+    dims = [text_size([s], size + ds, bold) for s, (ds, _, bold) in zip(block, FORMULA_STYLE)]
+    return max(w for w, _ in dims), sum(h for _, h in dims)
+
+
+def draw_formulas(img, shape, tool, scale, unit):
+    """Bảng công thức dưới cột "Tinh:", căn phải theo cột. Khung hình thấp không đủ chỗ thì đặt sang trái cột,
+    ngang đầu cột; chữ thu nhỏ tới 14 px. Trả về khung bảng (x0, y0, x1, y1), None nếu không có gì để vẽ."""
+    blocks = [b for b in (formula(shape, k, scale, unit) for k in ("perimeter", "area") if k in tool.show) if b]
+    menu = tool.menu(shape)
+    if not blocks or not menu:
+        return
+    def panel(size):
+        dims = [_block_size(b, size) for b in blocks]
+        return (max(MENU_W, max(w for w, _ in dims) + 2 * PANEL_PAD),
+                sum(h for _, h in dims) + BLOCK_GAP * (len(blocks) - 1) + 2 * PANEL_PAD)
+
+    def fit(top):                    # cỡ chữ lớn nhất (20 -> 14) vừa chiều cao còn lại từ top, None nếu không vừa
+        return next((sz for sz in range(20, 13, -2) if panel(sz)[1] <= img.shape[0] - 45 - top), None)
+
+    top, right = int(menu[-1][1][3]) + 16, tool.menu_x + MENU_W
+    size = fit(top)
+    if size is None:                 # sang trái cột nút, ngang đầu cột
+        top, right = int(menu[0][1][1]), tool.menu_x - 10
+        size = fit(top) or 14
+    w, h = panel(size)
+    x0, y1 = max(right - w, 0), min(top + h, img.shape[0])
+    roi = img[top:y1, x0:right]
+    roi[:] = (roi * 0.25).astype(np.uint8)      # nền tối: chữ trắng vẫn đọc được trên tường sáng
+    cv2.rectangle(img, (x0, top), (right, y1), BUTTON_EDGE, 1)
+    y = top + PANEL_PAD
+    for b in blocks:
+        for s, (ds, color, bold) in zip(b, FORMULA_STYLE):
+            y += put_text(img, [s], (x0 + PANEL_PAD, y), size + ds, color, bold)[1]
+        y += BLOCK_GAP
+    return x0, top, right, top + h

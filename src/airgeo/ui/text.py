@@ -7,16 +7,17 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 @lru_cache(maxsize=16)
-def _font(size):
+def _font(size, bold=False):
     try:
-        return ImageFont.truetype("arial.ttf", size)        # font Windows, có tiếng Việt và ½ π ²
+        # font Windows, có tiếng Việt và ½ π ²
+        return ImageFont.truetype("arialbd.ttf" if bold else "arial.ttf", size)
     except OSError:
         return ImageFont.load_default()
 
 
 @lru_cache(maxsize=128)
-def _render(lines, size):
-    font, lh = _font(size), round(size * 1.3)
+def _render(lines, size, bold=False):
+    font, lh = _font(size, bold), round(size * 1.3)
     w = max(1, *(round(font.getlength(s)) + 2 for s in lines))
     mask = Image.new("L", (w, lh * len(lines) + 4), 0)
     draw = ImageDraw.Draw(mask)
@@ -25,14 +26,14 @@ def _render(lines, size):
     return np.asarray(mask, np.float32) / 255
 
 
-def text_size(lines, size):
-    h, w = _render(tuple(lines), size).shape
+def text_size(lines, size, bold=False):
+    h, w = _render(tuple(lines), size, bold).shape
     return w, h
 
 
-def put_text(img, lines, org, size=20, color=(255, 255, 255)):
+def put_text(img, lines, org, size=20, color=(255, 255, 255), bold=False):
     """Vẽ nhiều dòng, góc trên trái tại org, màu BGR; phần ra ngoài ảnh bị cắt. Trả về (w, h) của khối chữ."""
-    a = _render(tuple(lines), size)
+    a = _render(tuple(lines), size, bold)
     h, w = a.shape
     x, y = org
     x0, y0, x1, y1 = max(x, 0), max(y, 0), min(x + w, img.shape[1]), min(y + h, img.shape[0])
