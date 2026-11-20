@@ -52,7 +52,7 @@ def test_hover_cursor_is_index_tip_and_pinch_draws_at_midpoint(make_hand):
     pf = _pf()
     assert pf.step(make_hand(100, 200, ratio=0.6), 0.0, want="pinch").fpt == (100, 170)   # p8
     res = pf.step(make_hand(100, 200, ratio=0.1), 0.1, want="pinch")
-    assert res.raw == (100, 200) and res.fpt == (100, 170)   # vẽ theo trung điểm 4-8, bắt đầu đúng chỗ đang trỏ
+    assert res.raw == (100, 200) and res.fpt == (100, 200)   # vẽ theo trung điểm 4-8, con trỏ nằm ngay chỗ chụm
 
 
 def test_two_fingers_press_only_where_wanted_and_need_a_fresh_close(make_two_finger):
@@ -97,8 +97,8 @@ def _press_after_drift(pf, make_hand):
 def test_press_point_is_where_cursor_was_before_fingers_closed(make_hand):
     pf = _pf()
     res = _press_after_drift(pf, make_hand)
-    assert res.pinched and res.fpt == (100, 170)                     # vị trí 0.12 s trước, không phải (150, 200)
-    assert pf.step(make_hand(160, 200, ratio=0.1), 0.333).fpt == (110, 170)   # đi theo tay, không nhảy
+    assert res.pinched and res.fpt == (100, 200)                     # điểm chụm 0.12 s trước, không phải (150, 200)
+    assert pf.step(make_hand(160, 200, ratio=0.1), 0.333).fpt == (110, 200)   # đi theo tay, không nhảy
 
 
 def test_release_does_not_jump_then_eases_back_to_fingertip(make_hand):
@@ -139,3 +139,11 @@ def test_press_while_sweeping_does_not_pull_cursor_far_back(make_hand):
         pf.step(make_hand(100 + 33 * i, 200, ratio=0.6), i * 0.033)
     res = pf.step(make_hand(430, 200, ratio=0.1), 0.33)
     assert res.pinched and math.dist(res.fpt, res.raw) <= Config().press_rewind_max_px + 1e-6
+
+
+def test_closing_fingers_in_place_keeps_cursor_on_the_pinch(make_hand):
+    pf = _pf()
+    for i, r in enumerate([0.6, 0.6, 0.6, 0.5, 0.4, 0.3, 0.25]):     # tay đứng yên, chỉ ngón trỏ đi xuống
+        pf.step(make_hand(300, 200, ratio=r), i * 0.033)
+    res = pf.step(make_hand(300, 200, ratio=0.1), 0.233)
+    assert res.pinched and math.dist(res.fpt, (300, 200)) < 2         # con trỏ nằm ngay chỗ chụm, không treo lơ lửng

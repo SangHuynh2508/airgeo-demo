@@ -6,7 +6,8 @@ vẽ bằng chụm ngón cái + trỏ, còn thanh nút / bảng nhập / Chọn 
 thì là trung điểm ngón cái – trỏ (xem gesture/pinch.py: draw_point).
 
 Ổn định điểm bấm ("hiệu ứng Heisenberg": chính động tác khép ngón kéo lệch con trỏ, Bowman 2001):
-lúc nhận ra bấm, điểm bấm lấy vị trí con trỏ `press_rewind` giây trước (lúc ngón chưa khép); suốt lần bấm con
+lúc nhận ra bấm, điểm bấm lấy chính điểm bấm (trung điểm 4-8 khi chụm) của `press_rewind` giây trước – chỉ gỡ
+phần cả bàn tay trôi, không gỡ quãng đầu ngón trỏ đi xuống khi khép (sẽ làm con trỏ treo xa tay); suốt lần bấm con
 trỏ = điểm nguồn + độ lệch cố định (đi theo tay, không nhảy); nhả ra thì độ lệch giảm dần về 0 trong DECAY giây.
 Phím S tắt / bật (so sánh trong bài đo bấm mục tiêu).
 
@@ -45,7 +46,7 @@ class PinchFilter:
         self._source = "p8"     # điểm con trỏ đang lấy từ đâu: "p8" | "mid"
         self.stabilize = True   # ổn định điểm bấm (phím S)
         self.rewind, self.rewind_max = config.press_rewind, config.press_rewind_max_px
-        self._hist = deque()    # (t, con trỏ) lúc rê, ~0.5 s gần nhất
+        self._hist = deque()    # (t, điểm bấm thô của cử chỉ đang dùng) lúc rê, ~0.5 s gần nhất
         self._pressing = False  # đã có điểm của lần bấm hiện tại
         self._offset = (0.0, 0.0)
         self._released = None   # (t nhả, độ lệch lúc nhả) – độ lệch đang giảm dần
@@ -80,7 +81,7 @@ class PinchFilter:
                     self.flt.reset()
                 self._offset = (0.0, 0.0)
             elif pinched and not self._pressing:
-                aim = self._aim(t)          # vị trí con trỏ trước lúc ngón khép
+                aim = self._aim(t)          # điểm bấm trước lúc ngón khép
                 if aim is not None:
                     ox, oy = aim[0] - raw[0], aim[1] - raw[1]
                     k = min(1.0, self.rewind_max / max(math.hypot(ox, oy), 1e-9))   # chỉ gỡ trôi, không gỡ cú quét tay
@@ -100,7 +101,7 @@ class PinchFilter:
             self._last_in = (raw[0] + self._offset[0], raw[1] + self._offset[1])
             fpt = self.flt.filter(*self._last_in, t)
             if not pinched:
-                self._hist.append((t, fpt))
+                self._hist.append((t, draw_point(hand) if self.active == "pinch" else hand["p8"]))
                 while self._hist and t - self._hist[0][0] > 0.5:
                     self._hist.popleft()
         elif not hand and not pinched:
@@ -110,7 +111,7 @@ class PinchFilter:
         return FrameResult(raw, fpt, pinched, holding, det.closure)
 
     def _aim(self, t):
-        """Vị trí con trỏ lúc t - rewind (lấy điểm mới nhất không muộn hơn); lịch sử ngắn hơn thì lấy điểm cũ nhất."""
+        """Điểm bấm lúc t - rewind (lấy điểm mới nhất không muộn hơn); lịch sử ngắn hơn thì lấy điểm cũ nhất."""
         if not self._hist:
             return None
         before = [p for tt, p in self._hist if tt <= t - self.rewind]
