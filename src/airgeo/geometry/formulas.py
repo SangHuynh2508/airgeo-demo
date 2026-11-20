@@ -3,7 +3,6 @@ Số lấy từ measure() / current_lengths(); ở đây chỉ đổi đơn vị
 import math
 
 from airgeo.geometry.construct import current_lengths
-from airgeo.geometry.measure import measure
 from airgeo.geometry.units import to_units, trim
 
 
@@ -35,24 +34,19 @@ def formula(shape, key, scale, unit):
     if scale is None:
         return [*_FORMULAS[kind][key], NEED_SCALE]
 
-    def n(px):                       # độ dài px -> số theo đơn vị hiện tại
-        return trim(to_units(px, unit, scale))
+    def n(px):                       # độ dài px -> số đã làm tròn đúng như hiện trên bảng
+        return float(trim(to_units(px, unit, scale)))
 
-    m, cur = measure(shape), current_lengths(shape)
-    if key == "perimeter":
-        total = f"= {n(m['perimeter'])} {unit}"
-        if kind == "triangle":
-            sub = f"= {n(cur['AB'])} + {n(cur['BC'])} + {n(cur['CA'])}"
-        elif kind == "rect":
-            sub = f"= 2({n(cur['dai'])} + {n(cur['rong'])})"
-        else:
-            sub = f"= 2π · {n(cur['r'])}"
+    # kết quả tính từ chính các số đang hiện ở dòng thế số: học sinh bấm máy tính lại ra đúng số đó
+    cur, per = current_lengths(shape), key == "perimeter"
+    if kind == "triangle":
+        a, b, c, h = n(cur["AB"]), n(cur["BC"]), n(cur["CA"]), n(triangle_height(shape["pts"])[2])
+        sub, val = (f"= {trim(a)} + {trim(b)} + {trim(c)}", a + b + c) if per else (f"= ½ · {trim(a)} · {trim(h)}",
+                                                                                      a * h / 2)
+    elif kind == "rect":
+        a, b = n(cur["dai"]), n(cur["rong"])
+        sub, val = (f"= 2({trim(a)} + {trim(b)})", 2 * (a + b)) if per else (f"= {trim(a)} · {trim(b)}", a * b)
     else:
-        total = f"= {trim(to_units(to_units(m['area'], unit, scale), unit, scale))} {unit}²"   # px² -> cm²
-        if kind == "triangle":
-            sub = f"= ½ · {n(cur['AB'])} · {n(triangle_height(shape['pts'])[2])}"
-        elif kind == "rect":
-            sub = f"= {n(cur['dai'])} · {n(cur['rong'])}"
-        else:
-            sub = f"= π · {n(cur['r'])}²"
-    return [*_FORMULAS[kind][key], sub, total]
+        r = n(cur["r"])
+        sub, val = (f"= 2π · {trim(r)}", 2 * math.pi * r) if per else (f"= π · {trim(r)}²", math.pi * r * r)
+    return [*_FORMULAS[kind][key], sub, f"= {trim(val)} {unit}" + ("" if per else "²")]

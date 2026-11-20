@@ -14,7 +14,7 @@ from airgeo.gesture.digits import read_digit
 from airgeo.gesture.pose import classify
 from airgeo.interaction.controller import Controller
 from airgeo.interaction.fitts import FittsTask
-from airgeo.interaction.pointer import PointerTracker
+from airgeo.interaction.pointer import PointerEvent, PointerTracker
 from airgeo.pinch_filter import PinchFilter
 from airgeo.recording.csv_logger import CsvLogger
 from airgeo.tracking.camera import FrameGrabber, open_camera
@@ -47,6 +47,7 @@ def run(config: Config):
     status_msg, status_until = "", 0.0
     last_hand = float("-inf")     # lúc cuối thấy tay: bảng gợi ý tư thế chỉ hiện khi giáo viên hạ tay
     fitts, fitts_saved = None, False  # bài đo bấm mục tiêu (phím K)
+    shown = None                      # khung hình vừa hiện (giữ lại khi camera khựng)
 
     # Toàn màn hình (máy chiếu), giữ tỉ lệ khung hình camera; phím F bật / tắt
     cv2.namedWindow(WIN, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
@@ -56,9 +57,17 @@ def run(config: Config):
         while True:
             ok, frame, t = cap.read()   # frame mới nhất + timestamp lúc chụp (không giả định FPS cố định)
             if not ok:
-                # Ví dụ webcam đang bị Teams/OBS giữ: MSMF báo mở được nhưng không có hình
-                print("Camera ngung gui hinh (dang bi ung dung khac dung?) -> thoat")
-                break
+                if shown is None or not cap.alive:
+                    # Ví dụ webcam đang bị Teams/OBS giữ: MSMF báo mở được nhưng không có hình
+                    print("Camera ngung gui hinh (dang bi ung dung khac dung?) -> thoat")
+                    break
+                # camera khựng giữa giờ: giữ hình cũ, báo, chờ tiếp (thoát là mất bảng đang dạy)
+                stall = shown.copy()
+                draw_status(stall, "Mất hình từ camera – đang chờ… (Q: thoát)")
+                cv2.imshow(WIN, stall)
+                if cv2.pollKey() & 0xFF in (ord("q"), 27):
+                    break
+                continue
             frame = cv2.flip(frame, 1)  # lật gương cho tự nhiên
             if ctl is None:             # bố cục thanh nút theo kích thước khung hình thật của camera
                 h, w = frame.shape[:2]
@@ -122,6 +131,7 @@ def run(config: Config):
             elif t < status_until:
                 draw_status(frame, status_msg)
             cv2.imshow(WIN, frame)
+            shown = frame
 
             # ---- Phím tắt ----
             # pollKey không chờ; waitKey(1) trên Windows tốn ~15 ms/frame (độ phân giải timer) -> tụt FPS
@@ -161,6 +171,9 @@ def run(config: Config):
             elif key == ord("d"):
                 tech = not tech
             elif key == ord("k"):
+                if pointer.down and fitts is None:      # đang chụm: kết thúc thao tác dở trước khi chuyển
+                    ctl.dispatch(PointerEvent("up", pointer.last, t))
+                pointer.down = False
                 if fitts is None:
                     fitts, fitts_saved = FittsTask(frame.shape[1], frame.shape[0]), False
                 else:

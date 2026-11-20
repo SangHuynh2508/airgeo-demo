@@ -45,10 +45,12 @@ class Board:
         return self._history[-1]
 
     def undo(self, only=None):
-        """Gỡ bước cuối. only: chỉ gỡ nếu bước cuối đúng là bản sao này (đã bị U / Xóa hết gỡ mất thì thôi)."""
+        """Gỡ bước cuối. only: chỉ gỡ nếu bước cuối đúng là bản sao này (đã bị U / Xóa hết gỡ mất thì thôi).
+        Trả về False nếu không có gì để gỡ."""
         if not self._history or (only is not None and self._history[-1] is not only):
-            return
+            return False
         self.shapes, self.scale = self._history.pop()
+        return True
 
     def get(self, sid):
         return next((s for s in self.shapes if s["id"] == sid), None)

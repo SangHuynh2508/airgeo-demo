@@ -53,3 +53,26 @@ def test_small_values_in_dm_and_m_do_not_round_to_zero():
 def test_without_scale_formula_has_no_px_numbers():
     assert formula(TRI, "perimeter", None, "cm") == ["Chu vi", "P = AB + BC + CA", "Nhập số đo cạnh để tính"]
     assert formula(TRI, "area", None, "cm")[2:] == ["Nhập số đo cạnh để tính"]
+
+
+def _nums(line):
+    import re
+    return [float(x) for x in re.findall(r"\d+(?:\.\d+)?", line)]
+
+
+@pytest.mark.parametrize("pts", [[(0, 0), (512, 0), (130, 290)], [(0, 0), (377, 0), (188, 327)],
+                                 [(10, 10), (433, 61), (97, 350)]])
+def test_shown_numbers_add_up_to_the_shown_result(pts):
+    tri = {"kind": "triangle", "pts": [tuple(map(float, p)) for p in pts]}
+    for unit in ("cm", "mm", "dm"):
+        *_, sub, total = formula(tri, "perimeter", 101.3, unit)
+        assert trim(sum(_nums(sub))) == trim(_nums(total)[0]), (sub, total)
+        *_, sub, total = formula(tri, "area", 101.3, unit)
+        ab, h = _nums(sub)                                             # "= ½ · AB · h" (½ không khớp regex)
+        assert trim(ab * h / 2) == trim(_nums(total)[0]), (sub, total)
+
+
+def test_rounded_angles_always_sum_to_the_exact_total():
+    from airgeo.geometry.units import round_sum
+    shown = round_sum([54.62, 70.76, 54.62], 180)
+    assert sum(shown) == 180 and all(abs(a - b) < 1 for a, b in zip(shown, [54.62, 70.76, 54.62]))

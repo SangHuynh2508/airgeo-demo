@@ -124,8 +124,7 @@ class Controller:
         elif action == "menu":
             self.menu.open(center, t)
         elif action == "undo":
-            self.board.undo()
-            self.notify("Đã hoàn tác", t)
+            self.notify("Đã hoàn tác" if self.board.undo() else "Không còn gì để hoàn tác", t)
         elif action != self.tool:
             self.set_tool(action)
             self.notify(TOOL_LABELS[action], t)

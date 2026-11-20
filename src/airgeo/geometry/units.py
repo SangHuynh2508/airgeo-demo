@@ -23,3 +23,12 @@ def trim(v):
     để đổi sang dm / m không thành 0 (0.045, 0.0012)."""
     d = 2 if abs(v) >= 1 or v == 0 else 2 - math.floor(math.log10(abs(v)))
     return f"{v:.{d}f}".rstrip("0").rstrip(".")
+
+
+def round_sum(vals, total):
+    """Làm tròn từng số về số nguyên mà tổng vẫn đúng bằng total (góc tam giác: 55 + 70 + 55 = 180, không 181):
+    lấy phần nguyên rồi cộng 1 cho các số có phần lẻ lớn nhất (largest remainder)."""
+    out = [math.floor(v) for v in vals]
+    for i in sorted(range(len(vals)), key=lambda i: out[i] - vals[i])[:round(total) - sum(out)]:
+        out[i] += 1
+    return out

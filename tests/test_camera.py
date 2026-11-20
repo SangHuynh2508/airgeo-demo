@@ -42,3 +42,16 @@ def test_camera_failure_ends_reading():
     assert grab.read()[0] is True
     assert grab.read(timeout=1.0)[0] is False
     grab.release()
+
+
+def test_release_does_not_free_camera_while_reader_is_stuck():
+    class StuckCap(FakeCap):
+        def read(self):
+            time.sleep(5)                       # camera treo trong read()
+            return False, None
+    cap = StuckCap(0)
+    g = FrameGrabber(cap)
+    time.sleep(0.05)
+    t0 = time.perf_counter()
+    g.release()
+    assert time.perf_counter() - t0 < 2 and not cap.released   # không gọi cap.release() song song với read()

@@ -53,7 +53,13 @@ class FrameGrabber:
             self._read = self._seq
             return self._ok, self._frame, self._t
 
+    @property
+    def alive(self):
+        """Luồng đọc còn chạy (camera chỉ khựng) – False khi camera đã báo lỗi đọc."""
+        return self._thread.is_alive()
+
     def release(self):
         self._stop = True
         self._thread.join(timeout=1.0)
-        self.cap.release()
+        if not self._thread.is_alive():     # còn kẹt trong cap.read(): không giải phóng song song (MSMF dễ treo)
+            self.cap.release()

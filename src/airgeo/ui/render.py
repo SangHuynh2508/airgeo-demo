@@ -13,7 +13,7 @@ from airgeo.geometry.formulas import formula, triangle_height
 from airgeo.geometry.measure import measure
 from airgeo.geometry.rotate import edge_angle
 from airgeo.geometry.shapes import is_right, shape_name
-from airgeo.geometry.units import fmt_length
+from airgeo.geometry.units import fmt_length, round_sum
 from airgeo.gesture.pinch import draw_point
 from airgeo.tools.select import MENU_W
 from airgeo.tracking.hand_tracker import CONNECTIONS
@@ -150,6 +150,7 @@ def draw_angles(img, s):
     if s["kind"] not in ("triangle", "rect"):
         return
     pts, angles = s["pts"], measure(s)["angles"]
+    angles = round_sum(angles, 180 * (len(pts) - 2))     # số hiện cộng lại đúng 180° (không 179 / 181)
     names = "ABC" if s["kind"] == "triangle" else [None] * 4
     for i in range(len(pts)):
         draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % len(pts)], angles[i], names[i])

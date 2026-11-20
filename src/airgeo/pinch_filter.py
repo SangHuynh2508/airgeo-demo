@@ -63,12 +63,13 @@ class PinchFilter:
     def step(self, hand, t, want="pinch") -> FrameResult:
         for d in self.detectors.values():   # cả 2 cập nhật mỗi frame để hysteresis / grace luôn đúng
             d.update(hand, t)
-        if not self.pinch.pinched and want != self.active:
-            self.active = want
+        if (self._blocked or not self.pinch.pinched) and want != self.active:
+            self.active = want              # đang bị chặn (chưa bấm gì) thì cũng đổi được
             self._blocked = self.pinch.pinched
+            self._hist.clear()              # điểm bấm cũ là của cử chỉ kia (trung điểm 4-8 / đầu ngón trỏ)
         det = self.pinch
-        if self._blocked and (not det.pinched or det.holding):
-            self._blocked = False           # đã thấy 2 ngón tách ra
+        if self._blocked and not det.pinched:
+            self._blocked = False           # đã thấy 2 ngón tách ra (mất tay 1 frame = "giữ", chưa phải tách)
         pinched = det.pinched and not self._blocked
         holding = det.holding and not self._blocked
         raw = fpt = None
@@ -87,6 +88,7 @@ class PinchFilter:
                     self._offset = (ox * k, oy * k)
                     self.flt.reset()        # bộ lọc bắt đầu đúng tại điểm bấm
                 self._released = None
+                self._hist.clear()          # lần bấm sau chỉ lùi theo các điểm rê sau lần này
             elif not pinched and self._pressing and self._last_in is not None:
                 # vừa nhả: giữ con trỏ tại chỗ rồi trượt dần về đầu ngón
                 self._released = (t, (self._last_in[0] - raw[0], self._last_in[1] - raw[1]))

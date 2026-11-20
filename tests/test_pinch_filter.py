@@ -60,8 +60,10 @@ def test_two_fingers_press_only_where_wanted_and_need_a_fresh_close(make_two_fin
     together, apart = make_two_finger(300, 200, ratio=0.1), make_two_finger(300, 200, ratio=0.6)
     assert not pf.step(together, 0.0, want="pinch").pinched        # vùng vẽ: 2 ngón không vẽ
     assert not pf.step(together, 0.1, want="two_finger").pinched   # đưa vào menu lúc 2 ngón đã áp: chưa bấm
-    pf.step(apart, 0.2, want="two_finger")
-    res = pf.step(together, 0.3, want="two_finger")
+    for i, r in enumerate((0.25, 0.4, 0.6)):                         # tách 2 ngón ra (mở dần như tay thật)
+        pf.step(make_two_finger(300, 200, ratio=r), 0.15 + i * 0.033, want="two_finger")
+    pf.step(apart, 0.3, want="two_finger")
+    res = pf.step(together, 0.35, want="two_finger")
     assert res.pinched and res.fpt == (300, 200) and pf.pinch.gesture == "two_finger"
 
 
@@ -141,3 +143,50 @@ def test_closing_fingers_in_place_keeps_cursor_on_the_pinch(make_hand):
         pf.step(make_hand(300, 200, ratio=r), i * 0.033)
     res = pf.step(make_hand(300, 200, ratio=0.1), 0.233)
     assert res.pinched and math.dist(res.fpt, (300, 200)) < 2         # con trỏ nằm ngay chỗ chụm, không treo lơ lửng
+
+
+def _feed(pf, frames, t0=0.0, dt=0.033):
+    """Cho chuỗi (tay, cử chỉ muốn) vào bộ lọc; trả (kết quả cuối, danh sách pinched từng frame, t tiếp theo)."""
+    out, res, t = [], None, t0
+    for h, want in frames:
+        res = pf.step(h, t, want)
+        out.append(res.pinched)
+        t += dt
+    return res, out, t
+
+
+def test_blocked_gesture_still_switches_back_so_pinch_draws(make_two_finger):
+    pf = _pf()
+    tog = make_two_finger(300, 300, 0.1)                                # trỏ + giữa áp sát (tư thế chỉ tay)
+    _, _, t = _feed(pf, [(tog, "pinch")] * 3 + [(make_two_finger(300, 30, 0.1), "two_finger")] * 3
+                    + [(tog, "pinch")] * 3)
+    h = make_two_finger(300, 300, 0.1)
+    h["pts"][4] = h["p4"] = (300, 302)                                  # chụm cái + trỏ để vẽ
+    res, _, _ = _feed(pf, [(h, "pinch")] * 5, t)
+    assert pf.active == "pinch" and res.pinched
+
+
+def test_one_frame_hand_loss_does_not_unblock_into_a_false_press(make_two_finger):
+    pf = _pf()
+    bar = make_two_finger(300, 30, 0.1)
+    _, _, t = _feed(pf, [(make_two_finger(300, 300, 0.1), "pinch")] * 5 + [(bar, "two_finger")] * 3)
+    _, out, _ = _feed(pf, [(None, "two_finger")] + [(bar, "two_finger")] * 3, t)   # ngón chưa hề tách
+    assert not any(out)
+
+
+def test_gesture_switch_forgets_press_points_of_the_old_gesture(make_hand, make_two_finger):
+    pf = _pf()
+    _, _, t = _feed(pf, [(make_hand(300, 300, 0.6), "pinch")] * 7)     # trung điểm 4-8 = (300, 300)
+    res, _, _ = _feed(pf, [(make_two_finger(300, 270, 0.6), "two_finger"),
+                           (make_two_finger(300, 270, 0.1), "two_finger")], t)
+    assert res.pinched and math.dist(res.fpt, (300, 270)) < 2          # đầu ngón trỏ, không phải trung điểm cũ
+
+
+def test_quick_re_press_after_short_stroke_is_not_pulled_back(make_hand):
+    pf = _pf()
+    frames = [(make_hand(100, 300, 0.6), "pinch")] * 10
+    frames += [(make_hand(100 + 200 * i / 7, 300, 0.1), "pinch") for i in range(8)]   # nét ngắn tới x=300
+    frames += [(make_hand(300, 300, r), "pinch") for r in (0.3, 0.4, 0.5, 0.6)]       # mở ngón -> nhả
+    frames += [(make_hand(300, 300, 0.1), "pinch")]                                    # chụm lại ngay
+    res, _, _ = _feed(pf, frames)
+    assert res.pinched and math.dist(res.fpt, (300, 300)) < 10

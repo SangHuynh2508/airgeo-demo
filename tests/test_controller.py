@@ -258,3 +258,11 @@ def test_drawn_shape_is_centered_and_enlarged(stroke):
     xs, ys = [p[0] for p in c.board.shapes[0]["pts"]], [p[1] for p in c.board.shapes[0]["pts"]]
     assert max(ys) - min(ys) == pytest.approx(y1 - y0) and (min(xs) + max(xs)) / 2 == pytest.approx((x0 + x1) / 2)
     assert y1 - y0 >= 0.65 * 720
+
+
+def test_undo_with_nothing_left_says_so():
+    c = _ctl()
+    assert c.board.undo() is False
+    _hold(c, "palm", 0.0, 0.2)
+    _hold(c, "fist", 0.5, 1.0)
+    assert c.message == "Không còn gì để hoàn tác"
