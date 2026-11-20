@@ -17,11 +17,6 @@ def test_triangle_3_4_5_cm():
     assert formula(TRI, "area", 100, "cm") == ["Diện tích", "S = ½ · AB · h", "= ½ · 3 · 4", "= 6 cm²"]
 
 
-def test_triangle_without_scale_uses_px():
-    assert formula(TRI, "perimeter", None, "cm")[2:] == ["= 300 + 400 + 500", "= 1200 px"]
-    assert formula(TRI, "area", None, "cm")[3] == "= 60000 px²"
-
-
 def test_rect_5_by_9_cm_and_mm():
     assert formula(RECT, "perimeter", 100, "cm") == ["Chu vi (a = dài, b = rộng)", "P = 2(a + b)", "= 2(5 + 9)",
                                                      "= 28 cm"]
@@ -53,3 +48,8 @@ def test_small_values_in_dm_and_m_do_not_round_to_zero():
     rect = {"kind": "rect", "pts": [(0.0, 0.0), (300.0, 0.0), (300.0, 400.0), (0.0, 400.0)]}   # 3 x 4 cm
     assert formula(rect, "perimeter", 100, "m")[2:] == ["= 2(0.03 + 0.04)", "= 0.14 m"]
     assert formula(rect, "area", 100, "m")[3] == "= 0.0012 m²"
+
+
+def test_without_scale_formula_has_no_px_numbers():
+    assert formula(TRI, "perimeter", None, "cm") == ["Chu vi", "P = AB + BC + CA", "Nhập số đo cạnh để tính"]
+    assert formula(TRI, "area", None, "cm")[2:] == ["Nhập số đo cạnh để tính"]

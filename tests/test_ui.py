@@ -93,16 +93,13 @@ def test_edit_panel_and_side_labels_paint(press):
     assert frame[y0, x0:x1].any()                        # viền bảng
 
 
-def test_canvas_draws_no_measurements_until_asked():
-    from airgeo.ui.render import draw_measurements
+def test_selected_circle_shows_its_radius():
+    from airgeo.ui.render import draw_selection
     circle = {"kind": "circle", "pts": [], "center": (600, 300), "radius": 80, "raw": []}
     frame = draw_canvas(np.zeros((720, 1280, 3), np.uint8), [circle], None)
-    assert not frame[300, 600].any()                 # chưa vẽ tâm / bán kính
-    draw_measurements(frame, circle, show={"radius"})
-    assert frame[300, 600].any()
-    blank = np.zeros((720, 1280, 3), np.uint8)
-    draw_measurements(blank, circle, show=set())
-    assert not blank.any()
+    assert not frame[300, 600:660].any()             # chưa chọn: chỉ có đường tròn
+    draw_selection(frame, circle)
+    assert frame[300, 600:660].any(axis=1).all()     # chọn: tâm + đường bán kính
 
 
 def _selected(shape, show, height=720, width=1280):
@@ -120,11 +117,11 @@ TRI_345 = {"kind": "triangle", "pts": [(300.0, 500.0), (600.0, 500.0), (600.0, 1
 
 def test_formula_panel_only_after_pressing_perimeter_or_area():
     from airgeo.ui.render import draw_tool_overlay
-    c, sel = _selected(TRI_345, {"sides"})
+    c, sel = _selected(TRI_345, {"angles"})
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
     below = sel.menu(c.board.get(1))[-1][1][3] + 10
-    assert not frame[below:690, 1000:1270].any()            # chỉ Cạnh: chưa có bảng công thức
+    assert not frame[below:690, 1000:1270].any()            # chỉ Góc: chưa có bảng công thức
     sel.show = {"perimeter", "area"}
     draw_tool_overlay(frame, c)
     assert frame[below:690, 1000:1270].any()
@@ -154,11 +151,10 @@ def test_formula_panel_fits_small_frame_and_skips_line():
     x0, y0, x1, y1 = draw_formulas(frame, c.board.get(1), c.tools["select"], 100.0, "cm")
     assert 0 <= x0 and y1 <= 480 - 40 and x1 <= c.tools["select"].menu_x   # sang trái cột nút, đủ chỗ
     assert frame[y1 - 30:y1 - 8, x0 + 8:x1 - 8].any()                      # dòng kết quả cuối có trong ảnh
-    c, sel = _selected({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)]}, {"sides"})
+    c, sel = _selected({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)]}, {"perimeter", "area"})
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
-    below = sel.menu(c.board.get(1))[-1][1][3] + 10
-    assert not frame[below:690, 1000:1270].any()            # đoạn thẳng: không có bảng công thức
+    assert not frame[sel.menu_y:690, 1000:1270].any()       # đoạn thẳng: không có cột nút, bảng công thức
 
 
 def test_perimeter_and_area_are_not_duplicated_on_the_shape():
@@ -236,19 +232,6 @@ def test_toast_legend_progress_and_radial_menu_paint():
     assert menu[int(uy) - 20:int(uy) + 20, int(ux) - 30:int(ux) + 30].any()
 
 
-def test_side_values_sit_outside_the_label_chips():
-    from airgeo.geometry.construct import label_anchors
-    from airgeo.ui.render import draw_measurements
-    for shape in ({"kind": "rect", "pts": [(400.0, 300.0), (820.0, 300.0), (820.0, 480.0), (400.0, 480.0)]},
-                  {"kind": "line", "pts": [(300.0, 300.0), (700.0, 380.0)]},
-                  {"kind": "circle", "pts": [], "center": (600.0, 400.0), "radius": 120.0}):
-        frame = np.zeros((720, 1280, 3), np.uint8)
-        draw_measurements(frame, shape, show={"sides", "radius"})
-        assert frame.any()
-        for x, y in label_anchors(shape).values():               # chỗ nút nhãn (56 x 32) phải trống
-            assert not frame[int(y) - 16:int(y) + 16, int(x) - 28:int(x) + 28].any()
-
-
 def test_rotation_handle_is_drawn_for_selected_rect():
     from airgeo.ui.render import draw_tool_overlay
     c, sel = _selected({"kind": "rect", "pts": [(500.0, 350.0), (700.0, 350.0), (700.0, 450.0), (500.0, 450.0)]},
@@ -272,10 +255,10 @@ def test_hidden_toolbar_draws_only_a_small_tool_chip():
 
 
 def test_right_angle_gets_square_mark_and_other_angles_an_arc():
-    from airgeo.ui.render import draw_measurements
+    from airgeo.ui.render import draw_angles
     tri = {"kind": "triangle", "pts": [(100, 600), (400, 600), (100, 300)], "raw": []}   # vuông tại A, 45° tại B
     frame = np.zeros((720, 1280, 3), np.uint8)
-    draw_measurements(frame, tri, None, "cm", {"angles"})
+    draw_angles(frame, tri)
     assert frame[588:597, 114:119].any()                 # cạnh ô vuông nhỏ ở A (cách đỉnh 16 px)
     assert not frame[597:603, 123:129].any()             # không có cung ở góc vuông
     assert frame[586:594, 372:380].any()                 # cung ở B (bán kính 26, theo phân giác)
@@ -293,3 +276,20 @@ def test_column_title_is_the_shape_name(press):
     sel = c.tools["select"]
     y0 = sel.menu_y - 34
     assert frame[y0:sel.menu_y - 4, sel.menu_x + 100:sel.menu_x + 150].any()   # tên dài, căn phải theo cột
+
+
+def test_side_chips_show_names_until_measured_then_values():
+    from airgeo.ui.render import chip_labels
+    rect = {"kind": "rect", "pts": [(100.0, 100.0), (550.0, 100.0), (550.0, 400.0), (100.0, 400.0)]}
+    assert chip_labels(rect, None, "cm") == {"dai": "dài", "rong": "rộng"}
+    assert chip_labels(rect, 50.0, "cm") == {"dai": "9 cm", "rong": "6 cm"}
+    tri = {"kind": "triangle", "pts": [(0.0, 0.0), (300.0, 0.0), (0.0, 400.0)]}
+    assert chip_labels(tri, 100.0, "cm") == {"AB": "3 cm", "BC": "5 cm", "CA": "4 cm"}
+
+
+def test_title_shown_for_line_without_menu():
+    from airgeo.ui.render import draw_tool_overlay
+    c, sel = _selected({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)]}, set())
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    assert frame[sel.menu_y - 40:sel.menu_y - 4, sel.menu_x + 100:sel.menu_x + 150].any()   # "Đoạn thẳng"

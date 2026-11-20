@@ -15,8 +15,9 @@ import math
 from airgeo.geometry.construct import label_anchors
 from airgeo.geometry.rotate import SNAP_DEG, center, rotate_points, snap_delta
 
-MEASURES = {"line": ["sides"], "triangle": ["sides", "angles", "perimeter", "area"],
-            "rect": ["sides", "angles", "perimeter", "area"], "circle": ["radius", "perimeter", "area"]}
+# độ dài cạnh / bán kính luôn ghi trên nhãn cạnh (draw_selection) nên cột Tính chỉ còn góc, chu vi, diện tích
+MEASURES = {"line": [], "triangle": ["angles", "perimeter", "area"],
+            "rect": ["angles", "perimeter", "area"], "circle": ["perimeter", "area"]}
 MENU_W, MENU_H, MENU_GAP = 150, 44, 8
 HANDLE_OFFSET = 32
 TRASH_R, TRASH_INSET = 70, 90     # bán kính vùng thả / tâm cách 2 mép dưới, phải

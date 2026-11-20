@@ -8,12 +8,12 @@ import math
 import cv2
 import numpy as np
 
-from airgeo.geometry.construct import field_names, label_anchors
+from airgeo.geometry.construct import current_lengths, label_anchors
 from airgeo.geometry.formulas import formula, triangle_height
 from airgeo.geometry.measure import measure
 from airgeo.geometry.rotate import edge_angle
 from airgeo.geometry.shapes import is_right, shape_name
-from airgeo.geometry.units import fmt_area, fmt_length
+from airgeo.geometry.units import fmt_length
 from airgeo.gesture.pinch import draw_point
 from airgeo.tools.select import MENU_W
 from airgeo.tracking.hand_tracker import CONNECTIONS
@@ -74,8 +74,14 @@ def draw_shape(img, s, color=None, thickness=4):
     cv2.polylines(img, [pts], kind in ("triangle", "rect"), color, thickness, cv2.LINE_AA)
 
 
-CHIP_W, CHIP_H = 56, 32               # nút nhãn cạnh (AB, dài, r...) quanh label_anchors
+CHIP_W, CHIP_H = 56, 32               # nút nhãn cạnh (AB, dài, r...) quanh label_anchors; rộng thêm theo chữ
 FIELD_LABELS = {"dai": "dài", "rong": "rộng"}
+
+
+def chip_labels(s, scale, unit):
+    """Chữ trên nhãn cạnh: tên cạnh khi chưa nhập số đo, nhập rồi thì số đo ("9 cm") – không bao giờ px."""
+    return {f: FIELD_LABELS.get(f, f) if scale is None else fmt_length(v, scale, unit)
+            for f, v in current_lengths(s).items()}
 
 
 VALUE_SIZE = 20                       # cỡ chữ số đo trên hình (cạnh, góc, bán kính)
@@ -86,18 +92,6 @@ def _value(img, s, center):
     """Số đo s (chữ Pillow có dấu) trên nền tối, tâm ở center."""
     w, h = text_size([s], VALUE_SIZE)
     _label_chip(img, [s], (int(center[0] - w / 2), int(center[1] - h / 2)), VALUE_SIZE)
-
-
-def _beside_chip(anchor, mid, s):
-    """Tâm chữ s đặt ngay ngoài nút nhãn, tiếp tục theo hướng từ giữa cạnh ra nhãn (không đè lên nút)."""
-    tw, th = text_size([s], VALUE_SIZE)
-    tw, th = tw + 20, th + 10                     # tính cả nền tối của _label_chip
-    d = math.dist(mid, anchor) or 1.0
-    ux, uy = (anchor[0] - mid[0]) / d, (anchor[1] - mid[1]) / d
-    reach = [(CHIP_W / 2 + tw / 2 + 6) / abs(ux) if abs(ux) > 1e-3 else math.inf,
-             (CHIP_H / 2 + th / 2 + 6) / abs(uy) if abs(uy) > 1e-3 else math.inf]
-    t = min(reach)
-    return anchor[0] + ux * t, anchor[1] + uy * t
 
 
 def draw_angle(img, v, p, n, angle):
@@ -124,53 +118,13 @@ def draw_angle(img, v, p, n, angle):
     _value(img, f"{angle:.0f}°", (v[0] + bx / b * dist, v[1] + by / b * dist))
 
 
-def draw_measurements(img, s, scale=None, unit="cm", show=()):
-    """Chỉ vẽ các số đo có trong `show` ("sides", "angles", "perimeter", "area", "radius").
-    Theo đơn vị nếu đã có tỉ lệ (scale = px/cm), chưa có thì hiện px."""
-    m = measure(s)
-    if not m or not show:
+def draw_angles(img, s):
+    """Ký hiệu + số đo các góc của tam giác / hình chữ nhật."""
+    if s["kind"] not in ("triangle", "rect"):
         return
-
-    def length(px):
-        return fmt_length(px, scale, unit)
-
-    totals = []                         # chu vi, diện tích: mỗi thứ 1 dòng để không đè lên nhau
-    if "perimeter" in show:
-        totals.append(f"{'C' if s['kind'] == 'circle' else 'P'}={length(m['perimeter'])}")
-    if "area" in show:
-        totals.append(f"S={fmt_area(m['area'], scale, unit)}")
-    if s["kind"] == "circle":
-        c, r = s["center"], s["radius"]
-        if "radius" in show:
-            cv2.line(img, ip(c), ip((c[0] + r, c[1])), SHAPE_COLOR, 1, cv2.LINE_AA)
-            cv2.circle(img, ip(c), 3, SHAPE_COLOR, -1)
-            _value(img, f"r = {length(r)}", (c[0] + r / 2, c[1] + 24))   # dưới đường bán kính (nút "r" ở trên)
-        for i, line in enumerate(totals):
-            _value(img, line, (c[0], c[1] + r + 24 + 30 * i))
-        return
-    pts = s["pts"]
-    anchors = label_anchors(s)
-    if s["kind"] == "line":
-        if "sides" in show:
-            mid = ((pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2)
-            _value(img, length(m["sides"][0]), _beside_chip(anchors["d"], mid, length(m["sides"][0])))
-        return
-    names = field_names(s["kind"])
-    n = len(pts)
-    cx, cy = sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n
-    for i in range(n):
-        a, b = pts[i], pts[(i + 1) % n]
-        mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-        # Số đo cạnh đẩy ra ngoài hình (cạnh đối của hình chữ nhật: ra ngoài theo hướng từ trọng tâm)
-        if "sides" in show:
-            label = length(m["sides"][i])
-            at = _beside_chip(anchors[names[i]], mid, label) if i < len(names) else \
-                (mid[0] + (mid[0] - cx) * 0.25, mid[1] + (mid[1] - cy) * 0.25)
-            _value(img, label, at)
-        if "angles" in show:
-            draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % n], m["angles"][i])
-    for i, line in enumerate(totals):
-        _value(img, line, (cx, cy + 30 * i - 15 * (len(totals) - 1)))
+    pts, angles = s["pts"], measure(s)["angles"]
+    for i in range(len(pts)):
+        draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % len(pts)], angles[i])
 
 
 DIM = 0.45     # hình không được chọn: còn thấy để tránh vẽ đè, nhưng lùi lại sau hình đang thao tác
@@ -214,21 +168,26 @@ def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
 
 SELECT_COLOR = (255, 200, 0)     # xanh dương nhạt: hình đang chọn
 ERASE_COLOR = (0, 0, 255)        # đỏ: hình sắp bị xóa
-MEASURE_LABELS = {"sides": "Cạnh", "angles": "Góc", "perimeter": "Chu vi", "area": "Diện tích", "radius": "Bán kính"}
+MEASURE_LABELS = {"angles": "Góc", "perimeter": "Chu vi", "area": "Diện tích"}
 
 
-def draw_selection(img, s, color=SELECT_COLOR):
-    """Viền nổi bật hình đang chọn (đỏ khi đang kéo đè lên hình khác); tam giác ghi tên đỉnh A, B, C;
-    nhãn cạnh bấm được để sửa số đo."""
+def draw_selection(img, s, color=SELECT_COLOR, scale=None, unit="cm"):
+    """Viền nổi bật hình đang chọn (đỏ khi đang kéo đè lên hình khác); tên đỉnh A, B, C (D); hình tròn có
+    đường bán kính; nhãn cạnh bấm được để sửa số đo, ghi số đo khi đã có tỉ lệ."""
     draw_shape(img, s, color, 6)
-    if s["kind"] == "triangle":
+    if s["kind"] in ("triangle", "rect"):
         pts = s["pts"]
-        cx, cy = sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3
-        for name, (x, y) in zip("ABC", pts):
+        cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+        for name, (x, y) in zip("ABCD", pts):
             text(img, name, ip((x + (x - cx) * 0.15 - 6, y + (y - cy) * 0.15 + 6)), 0.7, color)
+    elif s["kind"] == "circle":
+        c, r = s["center"], s["radius"]
+        cv2.line(img, ip(c), ip((c[0] + r, c[1])), color, 2, cv2.LINE_AA)
+        cv2.circle(img, ip(c), 4, color, -1, cv2.LINE_AA)
+    labels = chip_labels(s, scale, unit)
     for f, (x, y) in label_anchors(s).items():
-        draw_button(img, (x - CHIP_W / 2, y - CHIP_H / 2, x + CHIP_W / 2, y + CHIP_H / 2), FIELD_LABELS.get(f, f),
-                    scale=0.55)
+        w = max(CHIP_W, text_size([labels[f]], 20)[0] + 20) / 2
+        draw_button(img, (x - w, y - CHIP_H / 2, x + w, y + CHIP_H / 2), labels[f], scale=0.55)
 
 
 def draw_rotation_handle(img, shape, tool):
@@ -284,17 +243,14 @@ def draw_tool_overlay(img, ctl):
     if shape is None:
         return
     if ctl.tool == "select":
-        draw_selection(img, shape, ERASE_COLOR if tool.blocked else SELECT_COLOR)
-        # chu vi / diện tích nằm trong bảng công thức, không ghi lại trên hình
-        draw_measurements(img, shape, ctl.board.scale, ctl.board.unit, tool.show - {"perimeter", "area"})
-        menu = tool.menu(shape)
-        if menu:                                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
-            name = shape_name(shape)
-            w, _ = text_size([name], 22, True)
-            _label_chip(img, [name], (int(menu[0][1][2]) - w - 10, int(menu[0][1][1]) - 40), 22, bold=True)
-        for k, rect in menu:
-            label = "Độ dài" if shape["kind"] == "line" else MEASURE_LABELS[k]
-            draw_button(img, rect, label, on=k in tool.show)
+        draw_selection(img, shape, ERASE_COLOR if tool.blocked else SELECT_COLOR, ctl.board.scale, ctl.board.unit)
+        if "angles" in tool.show:                 # chu vi / diện tích nằm trong bảng công thức
+            draw_angles(img, shape)
+        name = shape_name(shape)                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
+        w, _ = text_size([name], 22, True)
+        _label_chip(img, [name], (tool.menu_x + MENU_W - w - 10, tool.menu_y - 40), 22, bold=True)
+        for k, rect in tool.menu(shape):
+            draw_button(img, rect, MEASURE_LABELS[k], on=k in tool.show)
         if shape["kind"] == "triangle" and "area" in tool.show:
             draw_height(img, shape["pts"])
         draw_formulas(img, shape, tool, ctl.board.scale, ctl.board.unit)

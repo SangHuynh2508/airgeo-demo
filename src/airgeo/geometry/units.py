@@ -14,14 +14,8 @@ def to_units(px, unit, scale):
 
 
 def fmt_length(px, scale, unit):
-    """Chưa có tỉ lệ (scale=None) thì hiện px như bản demo."""
-    return f"{px:.0f}px" if scale is None else f"{to_units(px, unit, scale):.2f} {unit}"
-
-
-def fmt_area(px2, scale, unit):
-    if scale is None:
-        return f"{px2:.0f}px2"
-    return f"{px2 / (scale * TO_CM[unit]) ** 2:.2f} {unit}2"
+    """Độ dài px theo đơn vị, số gọn: "9 cm", "2.4 cm" (cần có tỉ lệ)."""
+    return f"{trim(to_units(px, unit, scale))} {unit}"
 
 
 def trim(v):

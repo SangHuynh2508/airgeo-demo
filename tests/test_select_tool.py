@@ -78,9 +78,9 @@ def test_measure_menu_depends_on_kind():
     from airgeo.tools.select import SelectTool
     tool = SelectTool(Config(), 1280)
     keys = lambda kind, **extra: [k for k, _ in tool.menu({"kind": kind, "pts": [], **extra})]  # noqa: E731
-    assert keys("triangle") == ["sides", "angles", "perimeter", "area"] == keys("rect")
-    assert keys("circle") == ["radius", "perimeter", "area"]
-    assert keys("line") == ["sides"] and keys("free") == []
+    assert keys("triangle") == ["angles", "perimeter", "area"] == keys("rect")     # cạnh ghi trên nhãn cạnh
+    assert keys("circle") == ["perimeter", "area"]
+    assert keys("line") == [] and keys("free") == []
     assert all(1280 - 170 <= r[0] and r[2] <= 1280 and r[1] >= 70 for _, r in tool.menu(TRI))
 
 
@@ -133,7 +133,7 @@ def test_stray_press_while_moving_to_menu_keeps_selection(stroke, press):
     assert sel.selected == 1
     _, (x0, y0, x1, y1) = sel.menu(c.board.get(1))[0]
     press(c, ((x0 + x1) / 2, (y0 + y1) / 2), t=2.0)
-    assert sel.show == {"sides"}
+    assert sel.show == {"angles"}
 
 
 def test_drop_on_another_shape_snaps_back_and_leaves_no_undo_step(stroke):
