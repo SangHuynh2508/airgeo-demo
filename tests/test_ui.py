@@ -268,3 +268,27 @@ def test_hidden_toolbar_draws_only_a_small_tool_chip():
     c.toolbar.visible = True
     draw_toolbar(frame, c, 0.0, None)
     assert (frame[30, 600] < 200).all()
+
+
+def test_right_angle_gets_square_mark_and_other_angles_an_arc():
+    from airgeo.ui.render import draw_measurements
+    tri = {"kind": "triangle", "pts": [(100, 600), (400, 600), (100, 300)], "raw": []}   # vuông tại A, 45° tại B
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_measurements(frame, tri, None, "cm", {"angles"})
+    assert frame[588:597, 114:119].any()                 # cạnh ô vuông nhỏ ở A (cách đỉnh 16 px)
+    assert not frame[597:603, 123:129].any()             # không có cung ở góc vuông
+    assert frame[586:594, 372:380].any()                 # cung ở B (bán kính 26, theo phân giác)
+
+
+def test_column_title_is_the_shape_name(press):
+    from airgeo.ui.render import draw_tool_overlay
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append({"kind": "triangle", "pts": [(300, 600), (600, 600), (300, 300)], "raw": [],
+                           "id": 1, "locked": False})
+    c.do("select")
+    press(c, (450, 600))
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    sel = c.tools["select"]
+    y0 = sel.menu_y - 34
+    assert frame[y0:sel.menu_y - 4, sel.menu_x + 100:sel.menu_x + 150].any()   # tên dài, căn phải theo cột

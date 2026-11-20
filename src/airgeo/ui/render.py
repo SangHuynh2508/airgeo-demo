@@ -12,6 +12,7 @@ from airgeo.geometry.construct import field_names, label_anchors
 from airgeo.geometry.formulas import formula, triangle_height
 from airgeo.geometry.measure import measure
 from airgeo.geometry.rotate import edge_angle
+from airgeo.geometry.shapes import is_right, shape_name
 from airgeo.geometry.units import fmt_area, fmt_length
 from airgeo.gesture.pinch import draw_point
 from airgeo.tools.select import MENU_W
@@ -62,7 +63,7 @@ def draw_button(img, rect, label, on=False, hover=False, scale=0.6):
         put_text(img, [label], ((x0 + x1 - w) // 2, (y0 + y1 - h) // 2 + 2), size)
 
 
-def draw_shape(img, s, color=None, thickness=3):
+def draw_shape(img, s, color=None, thickness=4):
     kind = s["kind"]
     if color is None:
         color = FREE_COLOR if kind == "free" else SHAPE_COLOR
@@ -77,16 +78,50 @@ CHIP_W, CHIP_H = 56, 32               # nút nhãn cạnh (AB, dài, r...) quanh
 FIELD_LABELS = {"dai": "dài", "rong": "rộng"}
 
 
-def _beside_chip(anchor, mid, s, scale=0.5):
-    """Gốc chữ s đặt ngay ngoài nút nhãn, tiếp tục theo hướng từ giữa cạnh ra nhãn (không đè lên nút)."""
-    (tw, th), _ = cv2.getTextSize(s, cv2.FONT_HERSHEY_SIMPLEX, scale, 1)
+VALUE_SIZE = 20                       # cỡ chữ số đo trên hình (cạnh, góc, bán kính)
+ANGLE_R, RIGHT_MARK = 26, 16          # bán kính cung góc / cạnh ô vuông góc vuông (px)
+
+
+def _value(img, s, center):
+    """Số đo s (chữ Pillow có dấu) trên nền tối, tâm ở center."""
+    w, h = text_size([s], VALUE_SIZE)
+    _label_chip(img, [s], (int(center[0] - w / 2), int(center[1] - h / 2)), VALUE_SIZE)
+
+
+def _beside_chip(anchor, mid, s):
+    """Tâm chữ s đặt ngay ngoài nút nhãn, tiếp tục theo hướng từ giữa cạnh ra nhãn (không đè lên nút)."""
+    tw, th = text_size([s], VALUE_SIZE)
+    tw, th = tw + 20, th + 10                     # tính cả nền tối của _label_chip
     d = math.dist(mid, anchor) or 1.0
     ux, uy = (anchor[0] - mid[0]) / d, (anchor[1] - mid[1]) / d
     reach = [(CHIP_W / 2 + tw / 2 + 6) / abs(ux) if abs(ux) > 1e-3 else math.inf,
              (CHIP_H / 2 + th / 2 + 6) / abs(uy) if abs(uy) > 1e-3 else math.inf]
     t = min(reach)
-    cx, cy = anchor[0] + ux * t, anchor[1] + uy * t
-    return ip((cx - tw / 2, cy + th / 2))
+    return anchor[0] + ux * t, anchor[1] + uy * t
+
+
+def draw_angle(img, v, p, n, angle):
+    """Ký hiệu góc tại đỉnh v (2 cạnh tới p, n) như SGK: góc vuông = ô vuông nhỏ, không ghi số;
+    góc khác = cung tròn nhỏ + số độ đặt trong góc theo phân giác."""
+    d1, d2 = math.dist(v, p) or 1.0, math.dist(v, n) or 1.0
+    u1 = ((p[0] - v[0]) / d1, (p[1] - v[1]) / d1)
+    u2 = ((n[0] - v[0]) / d2, (n[1] - v[1]) / d2)
+    if is_right(angle):
+        s = RIGHT_MARK
+        corner = [(v[0] + s * u1[0], v[1] + s * u1[1]), (v[0] + s * (u1[0] + u2[0]), v[1] + s * (u1[1] + u2[1])),
+                  (v[0] + s * u2[0], v[1] + s * u2[1])]
+        cv2.polylines(img, [np.array([ip(q) for q in corner], np.int32)], False, ANGLE_COLOR, 2, cv2.LINE_AA)
+        return
+    a1, a2 = math.degrees(math.atan2(u1[1], u1[0])), math.degrees(math.atan2(u2[1], u2[0]))
+    sweep = (a2 - a1) % 360
+    start = a1 if sweep <= 180 else a2
+    cv2.ellipse(img, ip(v), (ANGLE_R, ANGLE_R), 0, start, start + min(sweep, 360 - sweep), ANGLE_COLOR, 2,
+                cv2.LINE_AA)
+    bx, by = u1[0] + u2[0], u1[1] + u2[1]
+    b = math.hypot(bx, by) or 1.0
+    # nền số ~ hình tròn bán kính 24: góc càng hẹp càng phải đẩy xa đỉnh mới không chạm 2 cạnh
+    dist = min(ANGLE_R + 4 + 24 / max(math.sin(math.radians(angle) / 2), 0.15), 160)
+    _value(img, f"{angle:.0f}°", (v[0] + bx / b * dist, v[1] + by / b * dist))
 
 
 def draw_measurements(img, s, scale=None, unit="cm", show=()):
@@ -109,18 +144,16 @@ def draw_measurements(img, s, scale=None, unit="cm", show=()):
         if "radius" in show:
             cv2.line(img, ip(c), ip((c[0] + r, c[1])), SHAPE_COLOR, 1, cv2.LINE_AA)
             cv2.circle(img, ip(c), 3, SHAPE_COLOR, -1)
-            label = f"r={length(r)}"          # dưới đường bán kính (nút "r" nằm phía trên)
-            (tw, _), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            text(img, label, ip((c[0] + r / 2 - tw / 2, c[1] + 22)))
+            _value(img, f"r = {length(r)}", (c[0] + r / 2, c[1] + 24))   # dưới đường bán kính (nút "r" ở trên)
         for i, line in enumerate(totals):
-            text(img, line, ip((c[0] - r, c[1] + r + 20 + 22 * i)))
+            _value(img, line, (c[0], c[1] + r + 24 + 30 * i))
         return
     pts = s["pts"]
     anchors = label_anchors(s)
     if s["kind"] == "line":
         if "sides" in show:
             mid = ((pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2)
-            text(img, length(m["sides"][0]), _beside_chip(anchors["d"], mid, length(m["sides"][0])))
+            _value(img, length(m["sides"][0]), _beside_chip(anchors["d"], mid, length(m["sides"][0])))
         return
     names = field_names(s["kind"])
     n = len(pts)
@@ -128,18 +161,16 @@ def draw_measurements(img, s, scale=None, unit="cm", show=()):
     for i in range(n):
         a, b = pts[i], pts[(i + 1) % n]
         mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-        # Nhãn cạnh đẩy ra ngoài hình, nhãn góc đẩy vào trong (theo hướng trọng tâm)
+        # Số đo cạnh đẩy ra ngoài hình (cạnh đối của hình chữ nhật: ra ngoài theo hướng từ trọng tâm)
         if "sides" in show:
             label = length(m["sides"][i])
-            org = _beside_chip(anchors[names[i]], mid, label) if i < len(names) else \
-                ip((mid[0] + (mid[0] - cx) * 0.15 - 12, mid[1] + (mid[1] - cy) * 0.15))
-            text(img, label, org)
+            at = _beside_chip(anchors[names[i]], mid, label) if i < len(names) else \
+                (mid[0] + (mid[0] - cx) * 0.25, mid[1] + (mid[1] - cy) * 0.25)
+            _value(img, label, at)
         if "angles" in show:
-            v = pts[i]
-            text(img, f"{m['angles'][i]:.0f}deg", ip((v[0] + (cx - v[0]) * 0.2 - 20, v[1] + (cy - v[1]) * 0.2)),
-                 0.45, ANGLE_COLOR)
+            draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % n], m["angles"][i])
     for i, line in enumerate(totals):
-        text(img, line, ip((cx - 60, cy + 22 * i - 11 * (len(totals) - 1))))
+        _value(img, line, (cx, cy + 30 * i - 15 * (len(totals) - 1)))
 
 
 DIM = 0.45     # hình không được chọn: còn thấy để tránh vẽ đè, nhưng lùi lại sau hình đang thao tác
@@ -230,11 +261,11 @@ def draw_trash(img, center, hot):
     roi = img[y0:cy + TRASH_R + 1, x0:cx + TRASH_R + 1]
     disk = roi.copy()
     cv2.circle(disk, (cx - x0, cy - y0), TRASH_R, (0, 0, 190) if hot else (0, 0, 0), -1, cv2.LINE_AA)
-    roi[:] = cv2.addWeighted(roi, 0.3, disk, 0.7, 0)
+    roi[:] = cv2.addWeighted(roi, 0.12, disk, 0.88, 0)
     edge = (255, 255, 255) if hot else ERASE_COLOR
     cv2.circle(img, (cx, cy), TRASH_R, edge, 3 if hot else 2, cv2.LINE_AA)
     # thùng: nắp + quai, thân hình thang, 3 vạch
-    ox, oy = cx, cy - 14
+    ox, oy = cx, cy - 20
     cv2.line(img, (ox - 22, oy - 16), (ox + 22, oy - 16), edge, 3, cv2.LINE_AA)
     cv2.rectangle(img, (ox - 7, oy - 22), (ox + 7, oy - 16), edge, 2, cv2.LINE_AA)
     body = np.array([(ox - 17, oy - 10), (ox + 17, oy - 10), (ox + 13, oy + 22), (ox - 13, oy + 22)], np.int32)
@@ -242,7 +273,7 @@ def draw_trash(img, center, hot):
     for dx in (-6, 0, 6):
         cv2.line(img, (ox + dx, oy - 4), (ox + dx, oy + 16), edge, 2, cv2.LINE_AA)
     w, _ = text_size(["Xóa"], 18, True)
-    put_text(img, ["Xóa"], (cx - w // 2, cy + 18), 18, bold=True)
+    put_text(img, ["Xóa"], (cx - w // 2, cy + 24), 18, bold=True)
 
 
 def draw_tool_overlay(img, ctl):
@@ -257,9 +288,10 @@ def draw_tool_overlay(img, ctl):
         # chu vi / diện tích nằm trong bảng công thức, không ghi lại trên hình
         draw_measurements(img, shape, ctl.board.scale, ctl.board.unit, tool.show - {"perimeter", "area"})
         menu = tool.menu(shape)
-        if menu:
-            x0, y0 = menu[0][1][:2]
-            put_text(img, ["Tính"], (int(x0), int(y0) - 30), 20, bold=True)
+        if menu:                                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
+            name = shape_name(shape)
+            w, _ = text_size([name], 22, True)
+            _label_chip(img, [name], (int(menu[0][1][2]) - w - 10, int(menu[0][1][1]) - 40), 22, bold=True)
         for k, rect in menu:
             label = "Độ dài" if shape["kind"] == "line" else MEASURE_LABELS[k]
             draw_button(img, rect, label, on=k in tool.show)

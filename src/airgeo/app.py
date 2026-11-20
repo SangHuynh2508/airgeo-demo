@@ -41,8 +41,12 @@ def run(config: Config):
     raw_trail, filt_trail = deque(maxlen=config.trail_len), deque(maxlen=config.trail_len)
     fps, n_frames, t_start, t_prev = 0.0, 0, time.perf_counter(), time.perf_counter()
     status_msg, status_until = "", 0.0
+    last_hand = float("-inf")     # lúc cuối thấy tay: bảng gợi ý tư thế chỉ hiện khi giáo viên hạ tay
 
-    cv2.namedWindow(WIN, cv2.WINDOW_NORMAL)
+    # Toàn màn hình (máy chiếu), giữ tỉ lệ khung hình camera; phím F bật / tắt
+    cv2.namedWindow(WIN, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+    full = True
+    cv2.setWindowProperty(WIN, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     try:
         while True:
             ok, frame = cap.read()
@@ -55,10 +59,11 @@ def run(config: Config):
             if ctl is None:             # bố cục thanh nút theo kích thước khung hình thật của camera
                 h, w = frame.shape[:2]
                 ctl = Controller(config, w, h)
-                cv2.resizeWindow(WIN, w, h)   # WINDOW_NORMAL mở ra chỉ ~300x280 px; vẫn kéo giãn / phóng to được
             board = ctl.board
 
             hand = tracker.process(frame, t)
+            if hand:
+                last_hand = t
             res = pf.step(hand, t, ctl.gesture_for(cursor))
             cursor = res.fpt or cursor
             if res.raw is not None:
@@ -93,8 +98,10 @@ def run(config: Config):
             if ctl.panel.is_open:
                 draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
             draw_pose_progress(frame, res.fpt, ctl.poses.progress)
-            if show_help:
-                (draw_help if tech else draw_legend)(frame)
+            if show_help and tech:
+                draw_help(frame)
+            elif show_help and t - last_hand > 1.5:
+                draw_legend(frame)
             if t < ctl.message_until:
                 draw_status(frame, ctl.message)
             elif t < status_until:
@@ -138,6 +145,11 @@ def run(config: Config):
                 show_help = not show_help
             elif key == ord("d"):
                 tech = not tech
+            elif key == ord("f"):
+                full = not full
+                cv2.setWindowProperty(WIN, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN if full else cv2.WINDOW_NORMAL)
+                if not full:
+                    cv2.resizeWindow(WIN, *frame.shape[1::-1])
             elif key == ord("r"):
                 if logger.active:
                     logger.stop()

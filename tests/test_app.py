@@ -34,6 +34,7 @@ def test_run_stops_cleanly_when_camera_stops_sending_frames(monkeypatch, tmp_pat
     monkeypatch.setattr(app, "open_camera", lambda *args, **kwargs: DeadCap())
     monkeypatch.setattr(app, "HandTracker", FakeTracker)
     monkeypatch.setattr(app.cv2, "namedWindow", lambda *args, **kwargs: None)
+    monkeypatch.setattr(app.cv2, "setWindowProperty", lambda *args, **kwargs: None)
     monkeypatch.setattr(app.cv2, "destroyAllWindows", lambda: None)
     app.run(Config(data_dir=str(tmp_path)))
     assert DeadCap.released and FakeTracker.closed
