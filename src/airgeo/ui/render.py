@@ -416,3 +416,26 @@ def draw_radial_menu(img, menu, board, t, cursor, bar_on=False):
             w, _ = text_size([s], 18, True)
             put_text(img, [s], (cx - w // 2, cy - lh * len(labels[a]) // 2 + i * lh), 18, bold=True)
     cv2.circle(img, ip(menu.center), 5, BUTTON_EDGE, -1, cv2.LINE_AA)
+
+
+def draw_fitts(img, task):
+    """Bài đo bấm mục tiêu (phím K): nền tối, mục tiêu xám, mục tiêu cần bấm tô vàng; xong thì bảng kết quả."""
+    img[:] = (img * 0.45).astype(np.uint8)
+    if task.done:
+        lines = ["Kết quả bài đo (đã lưu data/fitts_*.csv) – K: thoát"] + [
+            f"D={b['D']:.0f} W={b['W']:.0f}: {b['tp']:.2f} bit/s, trượt {b['error_rate'] * 100:.0f}%, "
+            f"MT {b['mt_ms']:.0f} ms" for b in task.summary()]
+        w, h = text_size(lines, 22)
+        _label_chip(img, lines, ((img.shape[1] - w) // 2, (img.shape[0] - h) // 2), 22)
+        return
+    W = task.blocks[task.block][1]
+    for i, p in enumerate(task.targets()):
+        if i == task.current:
+            cv2.circle(img, ip(p), int(W / 2), BUTTON_HOVER, -1, cv2.LINE_AA)
+        cv2.circle(img, ip(p), int(W / 2), BUTTON_EDGE, 2, cv2.LINE_AA)
+    D, Wb = task.blocks[task.block]
+    bam = "áp 2 ngón" if task.gesture == "two_finger" else "chụm"
+    lines = [f"Bài đo: khối {task.block + 1}/{len(task.blocks)}  D={D:.0f} W={Wb:.0f}  lần {task.step}/{task.n}",
+             f"Bấm vào hình tròn vàng ({bam}, B: đổi)  ·  S: ổn định điểm bấm  ·  K: thoát"]
+    w, _ = text_size(lines, 20)
+    _label_chip(img, lines, ((img.shape[1] - w) // 2, 16), 20)

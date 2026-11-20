@@ -10,7 +10,7 @@ TOOL_NAMES = {"draw": "Ve", "select": "Chon", "erase": "Xoa"}
 GESTURE_NAMES = {"two_finger": "2 ngon", "pinch": "chum"}
 HELP = [
     "Ve: chum cai+tro | Nut, Chon, Xoa: ap 2 ngon tro+giua | 0/1/2: loc  [ ]: mincutoff  ; ': beta  - =: MA n  , .: nguong chum",
-    "V/G/X: Ve/Chon/Xoa  N: don vi  T: dai nut  U: undo  C: xoa het  M: so sanh  S: on dinh bam  P: 2D/3D  L: xuong  R: CSV  H: an  F: toan man hinh  D: tat ky thuat  Q: thoat",
+    "V/G/X: Ve/Chon/Xoa  N: don vi  T: dai nut  U: undo  C: xoa het  M: so sanh  S: on dinh bam  K: bai do  P: 2D/3D  L: xuong  R: CSV  H: an  F: toan man hinh  D: tat ky thuat  Q: thoat",
 ]
 
 

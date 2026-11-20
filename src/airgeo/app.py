@@ -13,6 +13,7 @@ from airgeo.config import Config
 from airgeo.gesture.digits import read_digit
 from airgeo.gesture.pose import classify
 from airgeo.interaction.controller import Controller
+from airgeo.interaction.fitts import FittsTask
 from airgeo.interaction.pointer import PointerTracker
 from airgeo.pinch_filter import PinchFilter
 from airgeo.recording.csv_logger import CsvLogger
@@ -20,8 +21,8 @@ from airgeo.tracking.camera import FrameGrabber, open_camera
 from airgeo.tracking.hand_tracker import HandTracker
 from airgeo.ui.edit_panel import draw_edit_panel
 from airgeo.ui.hud import draw_help, draw_hud, draw_legend, draw_status, hud_lines
-from airgeo.ui.render import (draw_canvas, draw_hand, draw_pose_progress, draw_radial_menu, draw_tool_overlay,
-                              draw_trails)
+from airgeo.ui.render import (draw_canvas, draw_fitts, draw_hand, draw_pose_progress, draw_radial_menu,
+                              draw_tool_overlay, draw_trails)
 from airgeo.ui.toolbar import draw_toolbar
 
 WIN = "AirGeo"
@@ -45,6 +46,7 @@ def run(config: Config):
     fps, n_frames, t_start, t_prev = 0.0, 0, time.perf_counter(), time.perf_counter()
     status_msg, status_until = "", 0.0
     last_hand = float("-inf")     # lúc cuối thấy tay: bảng gợi ý tư thế chỉ hiện khi giáo viên hạ tay
+    fitts, fitts_saved = None, False  # bài đo bấm mục tiêu (phím K)
 
     # Toàn màn hình (máy chiếu), giữ tỉ lệ khung hình camera; phím F bật / tắt
     cv2.namedWindow(WIN, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
@@ -66,15 +68,22 @@ def run(config: Config):
             hand = tracker.process(frame, t)
             if hand:
                 last_hand = t
-            res = pf.step(hand, t, ctl.gesture_for(cursor))
+            res = pf.step(hand, t, fitts.gesture if fitts else ctl.gesture_for(cursor))
             cursor = res.fpt or cursor
             if res.raw is not None:
                 raw_trail.append(res.raw)
                 filt_trail.append(res.fpt)
             for ev in pointer.update(res, t):
-                ctl.dispatch(ev)
+                if fitts:
+                    fitts.on_event(ev, pf.stabilize)
+                else:
+                    ctl.dispatch(ev)
+            if fitts and fitts.done and not fitts_saved:
+                fitts_saved = True
+                status_msg, status_until = f"Đã lưu: {fitts.save(config.data_dir)[0]}", t + 4
             # tư thế tay giữ yên -> đổi công cụ / Undo / menu tròn (Controller bỏ qua khi đang chụm, bảng nhập mở)
-            ctl.on_pose(classify(hand["pts"]) if hand else None, hand["pts"][9] if hand else (0, 0), t)
+            if fitts is None:
+                ctl.on_pose(classify(hand["pts"]) if hand else None, hand["pts"][9] if hand else (0, 0), t)
             logger.log(**pf.csv_row(hand, t, res, True))    # cột mode: nhận dạng luôn bật
 
             # ---- Vẽ ----
@@ -90,16 +99,20 @@ def run(config: Config):
                 draw_hud(frame, hud_lines(pf, board, ctl.tool, fps, compare,
                                           logger.session_id if logger.active else None),
                          recording=logger.active, top=config.toolbar_height)
-            draw_tool_overlay(frame, ctl)
+            if fitts:
+                draw_fitts(frame, fitts)
+            else:
+                draw_tool_overlay(frame, ctl)
             if compare:
                 draw_trails(frame, raw_trail, filt_trail)
             draw_hand(frame, hand, res, show_skeleton and tech, pf.pinch.gesture)
-            draw_toolbar(frame, ctl, t, res.fpt)
-            if ctl.menu.is_open:
-                draw_radial_menu(frame, ctl.menu, board, t, res.fpt, ctl.toolbar.visible)
-            if ctl.panel.is_open:
-                draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
-            draw_pose_progress(frame, res.fpt, ctl.poses.progress)
+            if fitts is None:
+                draw_toolbar(frame, ctl, t, res.fpt)
+                if ctl.menu.is_open:
+                    draw_radial_menu(frame, ctl.menu, board, t, res.fpt, ctl.toolbar.visible)
+                if ctl.panel.is_open:
+                    draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
+                draw_pose_progress(frame, res.fpt, ctl.poses.progress)
             if show_help and tech:
                 draw_help(frame)
             elif show_help and t - last_hand > 1.5 and not ctl.board.shapes:
@@ -147,6 +160,15 @@ def run(config: Config):
                 show_help = not show_help
             elif key == ord("d"):
                 tech = not tech
+            elif key == ord("k"):
+                if fitts is None:
+                    fitts, fitts_saved = FittsTask(frame.shape[1], frame.shape[0]), False
+                else:
+                    if fitts.records and not fitts_saved:
+                        status_msg, status_until = f"Đã lưu: {fitts.save(config.data_dir)[0]}", t + 4
+                    fitts = None
+            elif key == ord("b") and fitts:
+                fitts.gesture = "pinch" if fitts.gesture == "two_finger" else "two_finger"
             elif key == ord("s"):
                 pf.stabilize = not pf.stabilize
                 status_msg, status_until = f"Ổn định điểm bấm: {'bật' if pf.stabilize else 'tắt'}", t + 2
