@@ -16,7 +16,7 @@ from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerTracker
 from airgeo.pinch_filter import PinchFilter
 from airgeo.recording.csv_logger import CsvLogger
-from airgeo.tracking.camera import open_camera
+from airgeo.tracking.camera import FrameGrabber, open_camera
 from airgeo.tracking.hand_tracker import HandTracker
 from airgeo.ui.edit_panel import draw_edit_panel
 from airgeo.ui.hud import draw_help, draw_hud, draw_legend, draw_status, hud_lines
@@ -30,7 +30,7 @@ FILTER_KEYS = {ord("0"): "none", ord("1"): "moving_avg", ord("2"): "one_euro"}
 
 def run(config: Config):
     try:
-        cap = open_camera(config.camera, config.width, config.height)
+        cap = FrameGrabber(open_camera(config.camera, config.width, config.height))
     except RuntimeError as e:
         raise SystemExit(str(e))
     tracker = HandTracker(model_complexity=config.model_complexity)
@@ -52,8 +52,7 @@ def run(config: Config):
     cv2.setWindowProperty(WIN, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     try:
         while True:
-            ok, frame = cap.read()
-            t = time.perf_counter()   # timestamp thật của frame, không giả định FPS cố định
+            ok, frame, t = cap.read()   # frame mới nhất + timestamp lúc chụp (không giả định FPS cố định)
             if not ok:
                 # Ví dụ webcam đang bị Teams/OBS giữ: MSMF báo mở được nhưng không có hình
                 print("Camera ngung gui hinh (dang bi ung dung khac dung?) -> thoat")
