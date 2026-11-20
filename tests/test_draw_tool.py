@@ -5,12 +5,11 @@ from airgeo.pinch_filter import PinchFilter
 from airgeo.tools.draw import DrawTool
 
 
-def _pipeline(smart=False):
+def _pipeline():
     """Bàn tay giả -> PinchFilter (không lọc) -> PointerTracker -> DrawTool -> Board."""
     pf = PinchFilter(Config())
     pf.select_filter("none")
     ctl = Controller(Config(), 1280, 720)
-    ctl.board.set_smart(smart)
     tool, pointer = DrawTool(), PointerTracker()
 
     def step(hand, t):
@@ -35,8 +34,8 @@ def test_pinch_draws_and_release_finishes_stroke(make_hand):
     step(make_hand(130, 200, ratio=0.6), 0.10)     # mở tay: còn trong thời gian giữ nét
     assert ctl.board.shapes == [] and len(tool.cur) == 3
     step(make_hand(130, 200, ratio=0.6), 0.40)     # quá 0.2 s -> nhả
-    assert tool.cur is None and len(ctl.board.shapes) == 1
-    assert ctl.board.shapes[0]["kind"] == "free" and len(ctl.board.shapes[0]["raw"]) == 3
+    assert tool.cur is None and ctl.board.shapes == []    # nét 20 px không ra hình: bỏ + báo
+    assert ctl.message == "Không nhận ra hình – vẽ lại"
 
 
 def test_holding_frames_add_no_points(make_hand):
@@ -56,20 +55,20 @@ def test_single_point_stroke_is_dropped(make_hand):
     assert ctl.board.shapes == [] and tool.cur is None
 
 
-def test_smart_mode_turns_square_into_rect(make_hand):
-    ctl, tool, step = _pipeline(smart=True)
+def test_square_stroke_becomes_square(make_hand):
+    ctl, tool, step = _pipeline()
     t = 0.0
     for x, y in _square():
         step(make_hand(x, y, ratio=0.1), t)
         t += 0.033
     step(make_hand(100, 100, ratio=0.6), t)
     step(make_hand(100, 100, ratio=0.6), t + 0.3)
-    assert ctl.board.shapes[0]["kind"] == "rect" and ctl.board.last_info.startswith("rect")
+    assert ctl.board.shapes[0]["kind"] == "rect" and ctl.message == "Hình vuông"
 
 
 def test_end_keeps_unfinished_stroke(make_hand):
     ctl, tool, step = _pipeline()
-    step(make_hand(100, 200, ratio=0.1), 0.0)
-    step(make_hand(150, 200, ratio=0.1), 0.033)
+    for i in range(11):
+        step(make_hand(100 + 10 * i, 200, ratio=0.1), i * 0.033)
     tool.end(ctl)                                  # ví dụ: đổi công cụ khi đang vẽ
     assert tool.cur is None and len(ctl.board.shapes) == 1

@@ -1,8 +1,8 @@
-"""Menu tròn cho lệnh ít dùng (Đơn vị, Smart, Xóa hết): giữ xòe tay lâu thì mở quanh bàn tay, áp 2 ngón vào mục
+"""Menu tròn cho lệnh ít dùng (Đơn vị, Hiện / ẩn dải nút, Xóa hết): giữ xòe tay lâu thì mở quanh bàn tay, áp 2 ngón vào mục
 để chọn. Bấm ra ngoài / mục Đóng / quá TIMEOUT giây thì đóng. "Xóa hết" bấm 2 lần mới xóa."""
 import math
 
-ITEMS = ["close", "smart", "clear", "unit"]      # trên, phải, dưới, trái – Đóng ở trên: lúc mở menu đầu ngón
+ITEMS = ["close", "bar", "clear", "unit"]      # trên, phải, dưới, trái – Đóng ở trên: lúc mở menu đầu ngón
                                                  # trỏ nằm ngay trên tâm, áp 2 ngón vội chỉ đóng menu
 RADIUS, ITEM_R, TIMEOUT = 120, 48, 6.0
 

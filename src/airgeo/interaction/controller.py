@@ -13,7 +13,7 @@ from airgeo.tools.draw import DrawTool
 from airgeo.tools.erase import EraseTool
 from airgeo.tools.select import SelectTool
 
-KEY_ACTIONS = {ord("u"): "undo", ord("c"): "clear", ord("s"): "smart", ord("n"): "unit",
+KEY_ACTIONS = {ord("u"): "undo", ord("c"): "clear", ord("n"): "unit", ord("t"): "bar",
                ord("v"): "draw", ord("g"): "select", ord("x"): "erase"}
 TOOL_LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa"}
 
@@ -80,8 +80,8 @@ class Controller:
             self.menu.close()
         elif action == "unit":
             self.board.cycle_unit()
-        elif action == "smart":
-            self.board.set_smart(not self.board.smart)
+        elif action == "bar":
+            self.toolbar.visible = not self.toolbar.visible
 
     def set_tool(self, name):
         if name != self.tool:

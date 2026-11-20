@@ -68,7 +68,7 @@ def run(config: Config):
                 ctl.dispatch(ev)
             # tư thế tay giữ yên -> đổi công cụ / Undo / menu tròn (Controller bỏ qua khi đang chụm, bảng nhập mở)
             ctl.on_pose(classify(hand["pts"]) if hand else None, hand["pts"][9] if hand else (0, 0), t)
-            logger.log(**pf.csv_row(hand, t, res, board.smart))
+            logger.log(**pf.csv_row(hand, t, res, True))    # cột mode: nhận dạng luôn bật
 
             # ---- Vẽ ----
             dt, t_prev = t - t_prev, t
@@ -89,7 +89,7 @@ def run(config: Config):
             draw_hand(frame, hand, res, show_skeleton and tech, pf.pinch.gesture)
             draw_toolbar(frame, ctl, t, res.fpt)
             if ctl.menu.is_open:
-                draw_radial_menu(frame, ctl.menu, board, t, res.fpt)
+                draw_radial_menu(frame, ctl.menu, board, t, res.fpt, ctl.toolbar.visible)
             if ctl.panel.is_open:
                 draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
             draw_pose_progress(frame, res.fpt, ctl.poses.progress)

@@ -1,4 +1,4 @@
-"""Bản vẽ: danh sách hình, tỉ lệ, đơn vị, chế độ Smart Shape và lịch sử Undo.
+"""Bản vẽ: danh sách hình, tỉ lệ, đơn vị và lịch sử Undo. Nét vẽ luôn được nhận dạng; nét không ra hình bị bỏ.
 
 Mọi thay đổi đi qua các hàm ở đây; trước mỗi thao tác lưu 1 bản sao (shapes + scale) để Undo.
 Hình là dict: id, kind, pts, raw = [(x, y, t)] của nét gốc, locked (đã sửa số đo);
@@ -11,14 +11,16 @@ from airgeo.geometry.hit import contains, distance_to_shape, overlaps
 from airgeo.geometry.measure import measure
 from airgeo.geometry.recognize import recognize
 from airgeo.geometry.rotate import rotate_points, straighten
+from airgeo.geometry.shapes import tidy
 from airgeo.geometry.units import UNITS
 
 
-def make_shape(raw, smart):
-    """raw: [(x, y, t)] của nét. Giữ lại raw để nhận dạng lại khi bật/tắt Smart Shape."""
-    shape = recognize(raw) if smart else {"kind": "free", "pts": [(x, y) for x, y, _ in raw]}
+def make_shape(raw):
+    """raw: [(x, y, t)] của nét -> hình đã nhận dạng, nắn (gần vuông / đều / cân...) và làm thẳng trục.
+    Không ra hình thì kind = "free"."""
+    shape = recognize(raw)
     shape["raw"] = raw
-    return straighten(shape) if smart else shape
+    return straighten(tidy(shape))
 
 
 def describe_result(shape):
@@ -31,39 +33,37 @@ class Board:
         self.shapes = []
         self.scale = None      # số px ứng với 1 cm; None = chưa đặt (số đo hiện px)
         self.unit = "cm"
-        self.smart = False
         self.last_info = ""    # lý do nhận dạng của nét cuối, hiển thị lên HUD
         self._history = deque(maxlen=history_limit)
         self._next_id = 1
 
     def begin(self):
         """Lưu bản sao trước 1 thao tác. Gọi đúng 1 lần cho mỗi thao tác. Trả về bản sao (để undo(only=...))."""
-        self._history.append((copy.deepcopy(self.shapes), self.scale, self.smart))
+        self._history.append((copy.deepcopy(self.shapes), self.scale))
         return self._history[-1]
 
     def undo(self, only=None):
         """Gỡ bước cuối. only: chỉ gỡ nếu bước cuối đúng là bản sao này (đã bị U / Xóa hết gỡ mất thì thôi)."""
         if not self._history or (only is not None and self._history[-1] is not only):
             return
-        self.shapes, self.scale, smart_then = self._history.pop()
-        if smart_then != self.smart:
-            # Smart đã bật/tắt sau thao tác đó (bật/tắt Smart không nằm trong lịch sử):
-            # nhận dạng lại để khớp chế độ hiện tại
-            self.set_smart(self.smart)
+        self.shapes, self.scale = self._history.pop()
 
     def get(self, sid):
         return next((s for s in self.shapes if s["id"] == sid), None)
 
     def add_stroke(self, raw):
-        """Thêm nét; trả None (không thêm, không lưu bước Undo) nếu hình mới đè lên hình đã có."""
-        shape = make_shape(raw, self.smart)
+        """Thêm nét đã nhận dạng. Không thêm, không lưu bước Undo khi: nét không ra hình (trả về hình kind "free",
+        không có id) hoặc hình mới đè lên hình đã có (trả None)."""
+        shape = make_shape(raw)
+        self.last_info = describe_result(shape)
+        if shape["kind"] == "free":
+            return shape
         if self.collides(shape):
             return None
         self.begin()
         shape["id"], shape["locked"] = self._next_id, False
         self._next_id += 1
         self.shapes.append(shape)
-        self.last_info = describe_result(shape)
         return shape
 
     def collides(self, shape, ignore_id=None):
@@ -86,7 +86,7 @@ class Board:
         if s is None:
             return
         s["pts"] = [(x + dx, y + dy) for x, y in s["pts"]]
-        s["raw"] = [(x + dx, y + dy, t) for x, y, t in s["raw"]]   # để bật/tắt Smart vẫn đúng vị trí
+        s["raw"] = [(x + dx, y + dy, t) for x, y, t in s["raw"]]
         if "center" in s:
             cx, cy = s["center"]
             s["center"] = (cx + dx, cy + dy)
@@ -106,15 +106,6 @@ class Board:
         self.begin()
         self.scale = scale
         self.shapes = [shape if s["id"] == sid else s for s in self.shapes]
-
-    def set_smart(self, on):
-        self.smart = on
-        self.shapes = [s if s["locked"] else self._rerecognized(s) for s in self.shapes]
-
-    def _rerecognized(self, s):
-        new = make_shape(s["raw"], self.smart)
-        new["id"], new["locked"] = s["id"], False
-        return new
 
     def cycle_unit(self):
         self.unit = UNITS[(UNITS.index(self.unit) + 1) % len(UNITS)]

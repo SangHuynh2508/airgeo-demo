@@ -338,11 +338,12 @@ def draw_pose_progress(img, pos, progress):
     _label_chip(img, [POSE_LABELS[action]], (c[0] + 46, c[1] - h // 2), 22, bold=True)
 
 
-def draw_radial_menu(img, menu, board, t, cursor):
-    """Menu tròn: 4 mục quanh tâm, mục dưới con trỏ viền vàng; Smart đang bật nền xanh, Xóa hết đã bấm 1 lần nền đỏ."""
+def draw_radial_menu(img, menu, board, t, cursor, bar_on=False):
+    """Menu tròn: 4 mục quanh tâm, mục dưới con trỏ viền vàng; Xóa hết đã bấm 1 lần nền đỏ.
+    board, bar_on: để ghi đơn vị hiện tại và chữ Hiện / Ẩn của mục dải nút."""
     from airgeo.interaction.radial_menu import ITEM_R
     armed = menu.clear_armed(t)
-    labels = {"unit": ["Đơn vị", board.unit], "smart": ["Smart", "bật" if board.smart else "tắt"],
+    labels = {"unit": ["Đơn vị", board.unit], "bar": ["Ẩn nút" if bar_on else "Hiện", "" if bar_on else "nút"],
               "clear": ["Chắc", "chưa?"] if armed else ["Xóa", "hết"], "close": ["Đóng"]}
     hover = menu.hit(cursor) if cursor is not None else None
     for a, p in menu.positions():
@@ -350,7 +351,7 @@ def draw_radial_menu(img, menu, board, t, cursor):
         x0, y0 = max(cx - ITEM_R, 0), max(cy - ITEM_R, 0)
         roi = img[y0:cy + ITEM_R + 1, x0:cx + ITEM_R + 1]
         disk = roi.copy()
-        fill = BUTTON_ON if a == "smart" and board.smart else (0, 0, 170) if a == "clear" and armed else (0, 0, 0)
+        fill = (0, 0, 170) if a == "clear" and armed else (0, 0, 0)
         cv2.circle(disk, (cx - x0, cy - y0), ITEM_R, fill, -1, cv2.LINE_AA)
         roi[:] = cv2.addWeighted(roi, 0.3, disk, 0.7, 0)
         cv2.circle(img, (cx, cy), ITEM_R, BUTTON_HOVER if a == hover else BUTTON_EDGE, 3 if a == hover else 1,

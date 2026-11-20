@@ -1,3 +1,5 @@
+import math
+
 from airgeo.document.board import Board
 
 
@@ -17,8 +19,8 @@ def square_raw(n=20):
 def test_add_stroke_gives_ids_and_last_info():
     b = Board()
     s1, s2 = b.add_stroke(line_raw()), b.add_stroke(line_raw(400))
-    assert (s1["id"], s2["id"]) == (1, 2) and s1["kind"] == "free" and s1["locked"] is False
-    assert b.last_info == "free"
+    assert (s1["id"], s2["id"]) == (1, 2) and s1["kind"] == "line" and s1["locked"] is False
+    assert b.last_info.startswith("line")
 
 
 def test_undo_restores_add_remove_and_clear():
@@ -70,24 +72,8 @@ def test_apply_edit_is_one_undo_step_including_scale():
     assert b.scale is None and b.shapes[0]["pts"] == s["pts"]
 
 
-def test_set_smart_rerecognizes_only_unlocked():
-    b = Board()
-    b.add_stroke(square_raw())
-    b.add_stroke([(x + 300, y, t) for x, y, t in square_raw()])    # hình vuông thứ 2 ở bên phải, không đè
-    b.shapes[1]["locked"] = True      # hình đã sửa số đo
-    b.set_smart(True)
-    assert [s["kind"] for s in b.shapes] == ["rect", "free"] and [s["id"] for s in b.shapes] == [1, 2]
-    b.set_smart(False)
-    assert b.shapes[0]["kind"] == "free"
 
 
-def test_undo_after_smart_toggle_follows_current_mode():
-    b = Board()
-    b.add_stroke(square_raw())
-    b.add_stroke(line_raw(400))
-    b.set_smart(True)
-    b.undo()                          # bản sao được lưu lúc Smart tắt
-    assert len(b.shapes) == 1 and b.shapes[0]["kind"] == "rect"
 
 
 def test_history_is_limited():
@@ -136,3 +122,21 @@ def test_add_stroke_rejects_overlap_without_undo_step():
     assert b.add_stroke([(200, 250 + 10 * i, i / 30) for i in range(11)]) is None   # cắt đoạn ngang
     assert len(b.shapes) == 1 and len(b._history) == 1
     assert b.add_stroke(line_raw(400)) is not None and b.collides(b.shapes[0], ignore_id=1) is None
+
+
+def curve_raw():
+    """Nét cong hở (nửa vòng tròn): không ra hình nào."""
+    import math
+    return [(300 + 100 * math.cos(math.pi * i / 30), 300 - 100 * math.sin(math.pi * i / 30), i / 30) for i in range(31)]
+
+
+def test_unrecognized_stroke_is_not_kept_and_leaves_no_undo_step():
+    b = Board()
+    s = b.add_stroke(curve_raw())
+    assert s["kind"] == "free" and "id" not in s and b.shapes == [] and not b._history
+
+
+def test_stroke_is_always_recognized_and_tidied():
+    b = Board()
+    s = b.add_stroke([(x, y * 0.95, t) for x, y, t in square_raw()])   # 200 x 190 -> hình vuông
+    assert s["kind"] == "rect" and abs(math.dist(*s["pts"][:2]) - math.dist(*s["pts"][1:3])) < 1e-6

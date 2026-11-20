@@ -34,8 +34,7 @@ def snap_delta(shape, tol):
 
 
 def straighten(shape, tol=SNAP_DEG):
-    """Hình nhận dạng được mà lệch trục <= tol độ thì xoay cho thẳng. Xoay cả nét gốc raw (nếu có) để bật / tắt
-    Smart nhận dạng lại ra đúng hình này – nếu không, góc lệch ẩn trong raw sẽ cộng vào mỗi lần xoay sau đó."""
+    """Hình nhận dạng được mà lệch trục <= tol độ thì xoay cho thẳng. Xoay cả nét gốc raw (nếu có) cho khớp hình."""
     d = snap_delta(shape, tol)
     if d:
         c = center(shape)

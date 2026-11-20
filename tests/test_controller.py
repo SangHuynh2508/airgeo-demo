@@ -1,7 +1,7 @@
 from airgeo.config import Config
 from airgeo.interaction.controller import Controller
 
-LINE = [(100, 300), (150, 300), (200, 300), (250, 300)]
+LINE = [(100 + 10 * i, 300) for i in range(16)]   # đoạn thẳng
 
 
 def _ctl():
@@ -11,7 +11,7 @@ def _ctl():
 def test_pinch_in_canvas_draws_a_stroke(stroke):
     c = _ctl()
     stroke(c, LINE)
-    assert len(c.board.shapes) == 1 and c.board.shapes[0]["kind"] == "free"
+    assert len(c.board.shapes) == 1 and c.board.shapes[0]["kind"] == "line"
 
 
 def test_pinch_started_on_toolbar_never_draws(stroke, button):
@@ -24,8 +24,6 @@ def test_pinch_started_on_toolbar_never_draws(stroke, button):
 def test_toolbar_buttons_run_actions(stroke, press, button):
     c = _ctl()
     stroke(c, LINE)
-    press(c, button(c, "smart"))
-    assert c.board.smart
     press(c, button(c, "undo"))
     assert c.board.shapes == []
 
@@ -42,7 +40,6 @@ def test_clear_button_needs_two_presses(stroke, press, button):
 def test_keys_call_the_same_actions(stroke):
     c = _ctl()
     stroke(c, LINE)
-    assert c.key(ord("s"), 0) and c.board.smart
     assert c.key(ord("n"), 0) and c.board.unit == "dm"
     assert c.key(ord("u"), 0) and c.board.shapes == []
     assert not c.key(ord("q"), 0) and not c.key(255, 0) and not c.key(ord("0"), 0)
@@ -102,14 +99,6 @@ def test_clear_closes_panel(press):
     assert not c.panel.is_open and c.board.shapes == []
 
 
-def test_smart_toggle_under_open_panel_does_not_crash_on_ok(press):
-    c = _ctl_with_selected_triangle(press)
-    c.board.shapes[0]["raw"] = [(100 + 10 * i, 600, i / 30) for i in range(30)]   # nét gốc là đường thẳng
-    press(c, label_anchors(c.board.shapes[0])["AB"])
-    c.key(ord("s"), 0)                            # Smart nhận dạng lại: hình dưới bảng không còn là tam giác
-    for code in b"3\r":
-        c.key(code, 0)
-    assert not c.panel.is_open and c.board.scale is None
 
 
 def test_gesture_depends_on_tool_and_place(button):
@@ -127,24 +116,22 @@ def test_gesture_depends_on_tool_and_place(button):
 
 def test_recognized_shape_is_selected_and_tool_becomes_select(stroke):
     c = _ctl()
-    c.board.set_smart(True)
     stroke(c, [(100 + 10 * i, 300) for i in range(21)])           # đoạn thẳng -> nhận dạng được
     assert c.board.shapes[0]["kind"] == "line"
     assert c.tool == "select" and c.tools["select"].selected == c.board.shapes[0]["id"]
 
 
-def test_free_stroke_stays_in_draw_and_overlap_is_refused(stroke):
+def test_overlapping_stroke_is_refused(stroke):
     c = _ctl()
-    stroke(c, [(100, 300), (200, 300), (300, 300)])
-    assert c.tool == "draw" and len(c.board.shapes) == 1
-    stroke(c, [(200, 250), (200, 300), (200, 350)], t0=1.0)       # cắt nét cũ
+    stroke(c, LINE)
+    c.do("draw")
+    stroke(c, [(200, 250 + 10 * i) for i in range(11)], t0=1.0)  # đoạn dọc cắt đoạn cũ
     assert len(c.board.shapes) == 1 and c.message.startswith("Hình mới đè lên") and c.message_until > 1.0
 
 
 def test_switching_tool_mid_stroke_keeps_shape_without_auto_select():
     from airgeo.interaction.pointer import PointerEvent as E
     c = _ctl()
-    c.board.set_smart(True)
     c.dispatch(E("down", (100, 300), 0.0))
     for i in range(1, 21):
         c.dispatch(E("move", (100 + 10 * i, 300), i * 0.03))
@@ -166,8 +153,9 @@ def test_three_finger_pose_switches_to_draw_with_message(stroke):
 
 def test_fist_pose_undoes_one_step(stroke):
     c = _ctl()
-    stroke(c, [(100, 300), (200, 300), (300, 300)])
-    stroke(c, [(100, 500), (200, 500), (300, 500)], t0=1.0)
+    stroke(c, LINE)
+    c.do("draw")
+    stroke(c, [(p[0], 500) for p in LINE], t0=1.0)
     _hold(c, "palm", 1.6, 0.2)                          # xòe tay rồi nắm lại
     _hold(c, "fist", 2.0, 2.0)                          # giữ lâu vẫn chỉ Undo 1 bước
     assert len(c.board.shapes) == 1 and c.message == "Đã hoàn tác"
@@ -213,7 +201,6 @@ def test_menu_closes_after_timeout():
 
 def test_relaxed_fist_right_after_drawing_does_not_undo(stroke):
     c = _ctl()
-    c.board.set_smart(True)
     stroke(c, [(100 + 10 * i, 300) for i in range(21)], t0=0.0)   # nhả tay lúc ~0.6 s
     _hold(c, "fist", 0.7, 3.0)                                     # tay khép hờ suốt lúc đang nói
     assert len(c.board.shapes) == 1
@@ -225,3 +212,17 @@ def test_relaxed_fist_right_after_drawing_does_not_undo(stroke):
 def test_menu_opens_with_close_item_above_the_hand():
     from airgeo.interaction.radial_menu import ITEMS
     assert ITEMS[0] == "close"          # đầu ngón trỏ nằm trên tâm bàn tay: áp 2 ngón ngay chỉ đóng menu
+
+
+def test_scribble_is_deleted_with_message_and_shape_name_is_announced(stroke):
+    import math
+    c = _ctl()
+    stroke(c, [(300 + 100 * math.cos(math.pi * i / 30), 300 - 100 * math.sin(math.pi * i / 30)) for i in range(31)])
+    assert c.board.shapes == [] and c.message == "Không nhận ra hình – vẽ lại" and c.tool == "draw"
+    stroke(c, [(100 + 10 * i, 500) for i in range(21)], t0=2.0)
+    assert c.message == "Đoạn thẳng" and c.tool == "select"
+
+
+def test_smart_is_gone():
+    c = _ctl()
+    assert not c.key(ord("s"), 0) and not hasattr(c.board, "smart")

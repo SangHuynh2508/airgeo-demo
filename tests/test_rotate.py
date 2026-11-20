@@ -28,12 +28,12 @@ def test_snap_delta_picks_nearest_axis_edge_within_tolerance():
 
 
 def test_smart_straightens_slightly_tilted_rect_and_line_only():
-    rect = make_shape(_stroke(_rect(400, 400, 300, 150, 6)), smart=True)
+    rect = make_shape(_stroke(_rect(400, 400, 300, 150, 6)))
     assert rect["kind"] == "rect" and all(abs(edge_angle(a, b) % 90) < 0.5 or abs(edge_angle(a, b) % 90) > 89.5
                                           for a, b in zip(rect["pts"], rect["pts"][1:]))
-    line = make_shape([(100 + 10 * i, 300 + 0.6 * i, 0.0) for i in range(21)], smart=True)
+    line = make_shape([(100 + 10 * i, 300 + 0.6 * i, 0.0) for i in range(21)])
     assert line["kind"] == "line" and line["pts"][0][1] == pytest.approx(line["pts"][1][1])
-    steep = make_shape([(100 + 10 * i, 300 + 6 * i, 0.0) for i in range(21)], smart=True)   # ~31°: giữ nguyên
+    steep = make_shape([(100 + 10 * i, 300 + 6 * i, 0.0) for i in range(21)])   # ~31°: giữ nguyên
     assert steep["pts"][1][1] - steep["pts"][0][1] > 100
 
 
@@ -48,19 +48,9 @@ def test_board_rotate_turns_points_raw_and_center_about_pivot():
     assert rotate_points([(1.0, 0.0)], 180, (0.0, 0.0))[0] == pytest.approx((-1, 0), abs=1e-9)
 
 
-def test_rotated_shape_keeps_its_angle_across_smart_toggle():
-    from airgeo.geometry.rotate import center
-    b = Board()
-    b.set_smart(True)
-    s = b.add_stroke(_stroke(_rect(500, 400, 300, 150, 6)))      # tự làm thẳng về 0°
-    b.rotate(s["id"], 30, center(s))
-    b.set_smart(False)
-    b.set_smart(True)
-    a = edge_angle(*b.shapes[0]["pts"][:2]) % 90
-    assert min(abs(a - 30), abs(a - 60)) < 1                    # vẫn nghiêng 30°, không thành 36°
 
 
 def test_angle_left_just_outside_drag_snap_is_not_straightened_later():
-    rect = make_shape(_stroke(_rect(400, 400, 300, 150, 9)), smart=True)   # 9° > ngưỡng hít 8°: giữ nguyên
+    rect = make_shape(_stroke(_rect(400, 400, 300, 150, 9)))   # 9° > ngưỡng hít 8°: giữ nguyên
     a = edge_angle(*rect["pts"][:2]) % 90
     assert min(abs(a - 9), abs(a - 81)) < 1.5

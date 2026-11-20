@@ -5,13 +5,14 @@ Chỉ bấm lúc BẮT ĐẦU chụm (sự kiện down), nên giữ chụm khôn
 Giao diện chính là tư thế tay (gesture/pose.py); thanh này là dự phòng + cho biết trạng thái.
 2 cụm: công cụ (Vẽ, Chọn, Xóa) bên trái | lệnh bên phải.
 """
-BUTTONS = ["draw", "select", "erase", "undo", "unit", "smart", "clear"]
+BUTTONS = ["draw", "select", "erase", "undo", "unit", "clear"]
 GAP, SPLIT = 10, 40     # khe giữa các nút / thêm giữa 2 cụm
 
 
 class Toolbar:
     def __init__(self, width, config):
         self.height = config.toolbar_height
+        self.visible = True
         self.confirm_window = config.confirm_window
         n = len(BUTTONS)
         w = (width - GAP * (n + 1) - SPLIT) / n   # chia đều chiều rộng: luôn vừa khung hình

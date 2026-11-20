@@ -15,7 +15,7 @@ def test_hud_lines_show_tool_scale_filter_and_pinch_state():
     assert lines[0] == "FPS: 29.9"
     assert "Cong cu: Ve  Ti le: chua dat" in lines
     assert "Loc: one_euro (mincutoff=1.000 beta=0.0070)" in lines
-    assert "Che do: ve tu do  | so sanh" in lines
+    assert "So sanh: bat" in lines
     assert "Chum: off  ratio -" in lines
     assert "Bam: chum  Do theo: 2D  on<0.20 off>0.35" in lines
     assert not any(line.startswith("REC") for line in lines)
@@ -24,11 +24,10 @@ def test_hud_lines_show_tool_scale_filter_and_pinch_state():
     assert hud_lines(pf, board, "draw", 30, False, "20261105_101010")[-1] == "REC session 20261105_101010"
 
 
-def test_hud_shows_last_recognition_only_in_smart_mode():
+def test_hud_shows_last_recognition():
     pf, board = PinchFilter(Config()), Board()
-    board.last_info = "rect ho=0.01 tron=0.69 dinh=4"
     assert not any(line.startswith("Net cuoi") for line in hud_lines(pf, board, "draw", 30, False, None))
-    board.smart = True
+    board.last_info = "rect ho=0.01 tron=0.69 dinh=4"
     assert "Net cuoi: rect ho=0.01 tron=0.69 dinh=4" in hud_lines(pf, board, "draw", 30, False, None)
 
 
@@ -55,7 +54,7 @@ def test_drawing_functions_paint_on_frame(make_hand):
 def test_selection_overlay_paints(stroke, press):
     from airgeo.ui.render import draw_tool_overlay
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    stroke(c, [(x, 300) for x in range(100, 301, 10)])
     c.do("select")
     press(c, (200, 300))
     frame = np.zeros((720, 1280, 3), np.uint8)
@@ -67,7 +66,7 @@ def test_erase_overlay_paints_red(stroke):
     from airgeo.interaction.pointer import PointerEvent
     from airgeo.ui.render import draw_tool_overlay
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    stroke(c, [(x, 300) for x in range(100, 301, 10)])
     c.do("erase")
     c.dispatch(PointerEvent("hover", (200, 300), 1.0))
     frame = np.zeros((720, 1280, 3), np.uint8)

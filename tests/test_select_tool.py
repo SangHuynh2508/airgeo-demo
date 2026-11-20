@@ -6,7 +6,7 @@ from airgeo.interaction.pointer import PointerEvent as E
 
 def _ctl_with_line(stroke):
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(100, 300), (200, 300), (300, 300)])
+    stroke(c, [(x, 300) for x in range(100, 301, 10)])
     c.do("select")
     return c
 
@@ -40,10 +40,11 @@ def test_small_wobble_selects_without_moving(stroke):
 def test_switching_tool_mid_pinch_is_safe():
     c = Controller(Config(), 1280, 720)
     c.dispatch(E("down", (100, 300), 0.0))
-    c.dispatch(E("move", (200, 300), 0.03))
-    assert c.key(ord("g"), 0.05)                 # đổi sang Chọn khi đang vẽ: nét được giữ lại
-    c.dispatch(E("move", (250, 300), 0.06))
-    c.dispatch(E("up", (250, 300), 0.1))
+    for i in range(1, 11):
+        c.dispatch(E("move", (100 + 10 * i, 300), 0.03 * i))
+    assert c.key(ord("g"), 0.35)                 # đổi sang Chọn khi đang vẽ: nét được giữ lại
+    c.dispatch(E("move", (250, 300), 0.36))
+    c.dispatch(E("up", (250, 300), 0.4))
     assert len(c.board.shapes) == 1 and c.tool == "select"
 
 
@@ -136,8 +137,9 @@ def test_stray_press_while_moving_to_menu_keeps_selection(stroke, press):
 
 def test_drop_on_another_shape_snaps_back_and_leaves_no_undo_step(stroke):
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(100, 300), (200, 300), (300, 300)])
-    stroke(c, [(100, 500), (200, 500), (300, 500)], t0=1.0)
+    stroke(c, [(x, 300) for x in range(100, 301, 10)])
+    c.do("draw")                                        # vẽ xong hình thứ nhất thì đã sang Chọn
+    stroke(c, [(x, 500) for x in range(100, 301, 10)], t0=1.0)
     c.do("select")
     sel = c.tools["select"]
     c.dispatch(E("down", (200, 500), 2.0))
@@ -154,7 +156,8 @@ def test_drop_on_another_shape_snaps_back_and_leaves_no_undo_step(stroke):
 def _blocked_drag(stroke):
     c = Controller(Config(), 1280, 720)
     for i, y in enumerate((300, 500, 650)):
-        stroke(c, [(100, y), (200, y), (300, y)], t0=i)
+        c.do("draw")
+        stroke(c, [(x, y) for x in range(100, 301, 10)], t0=i)
     c.do("select")
     c.dispatch(E("down", (200, 500), 5.0))
     c.dispatch(E("move", (200, 400), 5.03))
@@ -179,8 +182,9 @@ def test_clear_mid_blocked_drag_stays_cleared(stroke):
 
 def test_dragged_shape_undone_mid_drag_does_not_crash(stroke):
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(100, 300), (200, 300), (300, 300)])
-    stroke(c, [(100, 500), (200, 500), (300, 500)], t0=0.5)
+    stroke(c, [(x, 300) for x in range(100, 301, 10)])
+    c.do("draw")
+    stroke(c, [(x, 500) for x in range(100, 301, 10)], t0=0.5)
     c.do("select")
     c.dispatch(E("down", (200, 500), 1.0))
     c.dispatch(E("move", (200, 550), 1.03))

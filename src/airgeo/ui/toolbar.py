@@ -1,7 +1,7 @@
 """Vẽ thanh nút trên không (logic ở interaction/toolbar.py)."""
 from airgeo.ui.render import draw_button, fit_size
 
-LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa", "undo": "Hoàn tác", "clear": "Xóa hết", "smart": "Smart"}
+LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa", "undo": "Hoàn tác", "clear": "Xóa hết"}
 
 
 def draw_toolbar(img, ctl, t, cursor):
@@ -15,5 +15,5 @@ def draw_toolbar(img, ctl, t, cursor):
     x0, _, x1, _ = tb.rects["draw"]
     size = fit_size(list(labels.values()), x1 - x0, 22)      # cùng 1 cỡ chữ cho cả dải (khung hẹp thì nhỏ lại)
     for b, rect in tb.rects.items():
-        on = b == ctl.tool or (b == "smart" and ctl.board.smart) or (b == "clear" and armed)
+        on = b == ctl.tool or (b == "clear" and armed)
         draw_button(img, rect, labels[b], on=on, hover=b == hover, scale=size / 36)
