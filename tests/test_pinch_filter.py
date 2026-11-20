@@ -1,3 +1,4 @@
+import math
 from airgeo.config import Config
 from airgeo.pinch_filter import PinchFilter
 
@@ -130,3 +131,11 @@ def test_frame_result_carries_closure(make_hand):
     pf = _pf()
     assert pf.step(make_hand(100, 200, ratio=0.6), 0.0).closure == 0.0
     assert abs(pf.step(make_hand(100, 200, ratio=0.275), 0.033).closure - 0.5) < 1e-9
+
+
+def test_press_while_sweeping_does_not_pull_cursor_far_back(make_hand):
+    pf = _pf()
+    for i in range(10):                                              # quét ngang ~1000 px/s
+        pf.step(make_hand(100 + 33 * i, 200, ratio=0.6), i * 0.033)
+    res = pf.step(make_hand(430, 200, ratio=0.1), 0.33)
+    assert res.pinched and math.dist(res.fpt, res.raw) <= Config().press_rewind_max_px + 1e-6

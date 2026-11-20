@@ -86,3 +86,19 @@ def test_draw_highlights_the_target_to_press():
     draw_fitts(frame, task)
     x, y = task.targets()[task.current]
     assert tuple(frame[int(y), int(x)]) == (0, 255, 255)
+
+
+def test_condition_switched_mid_block_is_labelled_mixed():
+    t = FittsTask(1280, 720, blocks=[(300, 50)], n=3)
+    tg = t.targets()
+    for k, s in enumerate([True, True, False, False]):
+        t.on_event(E("down", tg[t.current], k * 0.5), s)
+    assert t.summary()[0]["stabilize"] == "mixed"
+
+
+def test_save_failure_is_reported_not_raised(tmp_path):
+    t = FittsTask(1280, 720)
+    blocker = tmp_path / "f"
+    blocker.write_text("x")                                          # thư mục đích là 1 file -> OSError
+    assert t.save_status(str(blocker)).startswith("Lỗi lưu")
+    assert t.save_status(str(tmp_path)).startswith("Đã lưu")

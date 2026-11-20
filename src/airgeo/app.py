@@ -80,7 +80,7 @@ def run(config: Config):
                     ctl.dispatch(ev)
             if fitts and fitts.done and not fitts_saved:
                 fitts_saved = True
-                status_msg, status_until = f"Đã lưu: {fitts.save(config.data_dir)[0]}", t + 4
+                status_msg, status_until = fitts.save_status(config.data_dir), t + 4
             # tư thế tay giữ yên -> đổi công cụ / Undo / menu tròn (Controller bỏ qua khi đang chụm, bảng nhập mở)
             if fitts is None:
                 ctl.on_pose(classify(hand["pts"]) if hand else None, hand["pts"][9] if hand else (0, 0), t)
@@ -165,7 +165,7 @@ def run(config: Config):
                     fitts, fitts_saved = FittsTask(frame.shape[1], frame.shape[0]), False
                 else:
                     if fitts.records and not fitts_saved:
-                        status_msg, status_until = f"Đã lưu: {fitts.save(config.data_dir)[0]}", t + 4
+                        status_msg, status_until = fitts.save_status(config.data_dir), t + 4
                     fitts = None
             elif key == ord("b") and fitts:
                 fitts.gesture = "pinch" if fitts.gesture == "two_finger" else "two_finger"

@@ -15,6 +15,7 @@ class Config:
     pinch_grace: float = 0.2           # giây giữ nét khi mất tay / tỉ lệ nhảy vọt
     release_confirm: float = 0.07      # giây xác nhận nhả khi mở ngón thật (tỉ lệ tăng dần)
     press_rewind: float = 0.12         # điểm bấm = vị trí con trỏ chừng này giây trước lúc nhận ra bấm
+    press_rewind_max_px: float = 60.0  # lùi điểm bấm tối đa chừng này px (bấm khi đang quét tay không bị kéo lùi xa)
     pinch_mode: str = "2d"             # "2d" hoặc "3d" (phím P)
     two_finger_on: float = 0.25        # ngưỡng áp 2 ngón (menu, Chọn, Xóa): khoảng cách đầu ngón 8-12 / lòng bàn tay
     two_finger_off: float = 0.40

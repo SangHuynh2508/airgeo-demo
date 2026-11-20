@@ -82,8 +82,16 @@ class FittsTask:
             ide = math.log2(max(de, 0.0) / we + 1)
             out.append(dict(D=D, W=W, n=len(r), mt_ms=mt * 1000, we=we, ide=ide, tp=ide / mt if mt > 0 else 0.0,
                             error_rate=1 - sum(x["hit"] for x in r) / len(r),
-                            stabilize=r[-1]["stabilize"], gesture=r[-1]["gesture"]))
+                            **{c: v.pop() if len(v := {x[c] for x in r}) == 1 else "mixed"
+                               for c in ("stabilize", "gesture")}))
         return out
+
+    def save_status(self, folder="data"):
+        """Lưu và trả câu báo cho dòng trạng thái; lỗi ghi file (thư mục khóa, đầy đĩa) không làm sập app."""
+        try:
+            return f"Đã lưu: {self.save(folder)[0]}"
+        except OSError as e:
+            return f"Lỗi lưu kết quả bài đo: {e}"
 
     def save(self, folder="data"):
         """Ghi data/fitts_<thời gian>.csv (từng lần bấm) và ..._summary.csv (từng khối). Trả về 2 đường dẫn."""

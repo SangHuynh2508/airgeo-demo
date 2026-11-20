@@ -13,6 +13,7 @@ Phím S tắt / bật (so sánh trong bài đo bấm mục tiêu).
 Không dùng camera hay cửa sổ nên test được bằng bàn tay giả (tests/conftest.py).
 Tách từ session.py của giai đoạn 1; phần nét/hình chuyển sang tools/draw.py + document/board.py.
 """
+import math
 from collections import deque
 from dataclasses import dataclass
 
@@ -43,7 +44,7 @@ class PinchFilter:
         self._blocked = False   # cử chỉ mới đã "bấm" sẵn lúc đổi sang -> phải nhả ra rồi bấm lại
         self._source = "p8"     # điểm con trỏ đang lấy từ đâu: "p8" | "mid"
         self.stabilize = True   # ổn định điểm bấm (phím S)
-        self.rewind = config.press_rewind
+        self.rewind, self.rewind_max = config.press_rewind, config.press_rewind_max_px
         self._hist = deque()    # (t, con trỏ) lúc rê, ~0.5 s gần nhất
         self._pressing = False  # đã có điểm của lần bấm hiện tại
         self._offset = (0.0, 0.0)
@@ -81,7 +82,9 @@ class PinchFilter:
             elif pinched and not self._pressing:
                 aim = self._aim(t)          # vị trí con trỏ trước lúc ngón khép
                 if aim is not None:
-                    self._offset = (aim[0] - raw[0], aim[1] - raw[1])
+                    ox, oy = aim[0] - raw[0], aim[1] - raw[1]
+                    k = min(1.0, self.rewind_max / max(math.hypot(ox, oy), 1e-9))   # chỉ gỡ trôi, không gỡ cú quét tay
+                    self._offset = (ox * k, oy * k)
                     self.flt.reset()        # bộ lọc bắt đầu đúng tại điểm bấm
                 self._released = None
             elif not pinched and self._pressing and self._last_in is not None:
