@@ -1,3 +1,4 @@
+import pytest
 import math
 from helpers import place_line
 import cv2
@@ -482,10 +483,12 @@ def test_numbers_and_formulas_are_big_enough_for_the_back_row(monkeypatch):
     assert calls[-1][1] >= 24                                            # bảng gợi ý
 
 
-def test_big_formula_panel_stays_in_frame_and_off_the_fitted_shape():
+@pytest.mark.parametrize("shape", [TRI_345, {"kind": "rect", "pts": [(0.0, 0.0), (600.0, 0.0), (600.0, 300.0),
+                                                                   (0.0, 300.0)]}])   # chữ nhật 2:1: tiêu đề bảng dài
+def test_big_formula_panel_stays_in_frame_and_off_the_fitted_shape(shape):
     from airgeo.ui.render import draw_formulas, side_chips
     for toolbar in (False, True):
-        c, sel = _selected(TRI_345, {"angles", "perimeter", "area"})
+        c, sel = _selected(shape, {"angles", "perimeter", "area"})
         if toolbar:
             c.do("bar")
         c.board.fit(1, c.fit_box)

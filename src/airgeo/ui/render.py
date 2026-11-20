@@ -15,6 +15,7 @@ from airgeo.geometry.rotate import edge_angle
 from airgeo.geometry.shapes import is_right, shape_name
 from airgeo.geometry.units import fmt_length, round_sum
 from airgeo.gesture.pinch import draw_point
+from airgeo.interaction.controller import FIT_MARGIN
 from airgeo.tools.select import HANDLE_R, MENU_W
 from airgeo.tracking.hand_tracker import CONNECTIONS
 from airgeo.ui.text import put_text, text_size
@@ -405,14 +406,17 @@ def draw_formulas(img, shape, tool, scale, unit):
         return (max(MENU_W, max(w for w, _ in dims) + 2 * PANEL_PAD),
                 sum(h for _, h in dims) + BLOCK_GAP * (len(blocks) - 1) + 2 * PANEL_PAD)
 
-    def fit(top):                    # cỡ chữ lớn nhất (26 -> 14) vừa chiều cao còn lại từ top, None nếu không vừa
-        return next((sz for sz in range(26, 13, -2) if panel(sz)[1] <= img.shape[0] - 45 - top), None)
+    wide = MENU_W + FIT_MARGIN - 40  # bảng dưới cột không lấn vào vùng đặt hình (fit_box chừa FIT_MARGIN trái cột) + chữ đỉnh
+
+    def fit(top, max_w=wide):        # cỡ chữ lớn nhất (26 -> 14) vừa chỗ còn lại từ top, None nếu không vừa
+        return next((sz for sz in range(26, 13, -2)
+                     if panel(sz)[1] <= img.shape[0] - 45 - top and panel(sz)[0] <= max_w), None)
 
     top, right = int(menu[-1][1][3]) + 16, tool.menu_x + MENU_W
     size = fit(top)
     if size is None:                 # sang trái cột nút, ngang đầu cột
         top, right = int(menu[0][1][1]), tool.menu_x - 10
-        size = fit(top) or 14
+        size = fit(top, img.shape[1]) or 14
     w, h = panel(size)
     x0, y1 = max(right - w, 0), min(top + h, img.shape[0])
     roi = img[top:y1, x0:right]
