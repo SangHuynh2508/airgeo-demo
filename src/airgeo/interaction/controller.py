@@ -97,6 +97,7 @@ class Controller:
             self.board.cycle_unit()
         elif action == "bar":
             self.toolbar.visible = not self.toolbar.visible
+            self.tools["select"].top = self.bounds[1]
 
     def set_tool(self, name):
         if name != self.tool:

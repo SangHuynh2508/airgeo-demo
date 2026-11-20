@@ -187,3 +187,12 @@ def test_keyboard_digits_then_written_dot_and_digit():
         p.type(ch)
     _write(p, ctl, [FIVE, DOT])
     assert p.values["BC"] == "7.5"
+
+
+def test_pinch_starting_just_below_pad_writes_not_presses():
+    _, p, ctl = _setup()
+    x = (p.pad_rect[0] + p.pad_rect[2]) / 2
+    y = p.pad_rect[3] + 10                        # chụm (trung điểm ngón cái-trỏ) lệch khỏi mép dưới ô viết
+    p.on_event(E("down", (x, y), 0.0), ctl)
+    assert p.cur is not None and p.is_open        # đang viết, không bấm nút bên dưới
+    assert min(r[1] for r in p.button_rects.values()) - p.pad_rect[3] > 16

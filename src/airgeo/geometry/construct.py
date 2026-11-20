@@ -6,8 +6,6 @@ Tam giác dựng từ 3 cạnh bằng định lý cos; đỉnh C giữ cùng ph�
 import math
 
 FIELDS = {"line": ["d"], "triangle": ["AB", "BC", "CA"], "rect": ["dai", "rong"], "circle": ["r"]}
-OUT_OF_SCREEN = "Hinh vuot khoi man hinh - nhap so nho hon hoac Dat lai ti le"
-TOO_SMALL = "Hinh qua nho - nhap so lon hon hoac Dat lai ti le"
 
 
 def field_names(kind):
@@ -88,15 +86,11 @@ def _check_triangle(lengths, fmt):
             raise ValueError(f"{f} phải nhỏ hơn {o1} + {o2} = {fmt(lengths[o1] + lengths[o2])}")
 
 
-def build(shape, lengths, bounds, min_side_px, fmt=lambda px: f"{px:.0f}px"):
-    """lengths: {tên ô: độ dài px}; bounds: vùng vẽ (x0, y0, x1, y1); fmt: định dạng số trong thông báo lỗi."""
+def build(shape, lengths, fmt=lambda px: f"{px:.0f}px"):
+    """lengths: {tên ô: độ dài px}; fmt: định dạng số trong thông báo lỗi. Hình dựng xong được fit() vào vùng vẽ."""
     kind = shape["kind"]
-    if any(v < min_side_px for v in lengths.values()):
-        raise ValueError(TOO_SMALL)
     if kind == "circle":
-        (cx, cy), r = shape["center"], lengths["r"]
-        new = {"kind": "circle", "pts": [], "center": shape["center"], "radius": r}
-        corners = [(cx - r, cy - r), (cx + r, cy + r)]
+        new = {"kind": "circle", "pts": [], "center": shape["center"], "radius": lengths["r"]}
     else:
         old = shape["pts"]
         u = _unit(old[0], old[1])                 # hướng cạnh đầu tiên
@@ -123,9 +117,5 @@ def build(shape, lengths, bounds, min_side_px, fmt=lambda px: f"{px:.0f}px"):
         (ox, oy), (lx, ly) = _centroid(old), _centroid(local)
         pts = [(x - lx + ox, y - ly + oy) for x, y in local]
         new = {"kind": kind, "pts": pts}
-        corners = pts
-    x0, y0, x1, y1 = bounds
-    if any(not (x0 <= x <= x1 and y0 <= y <= y1) for x, y in corners):
-        raise ValueError(OUT_OF_SCREEN)
     new.update(id=shape["id"], raw=shape["raw"], locked=True)
     return new

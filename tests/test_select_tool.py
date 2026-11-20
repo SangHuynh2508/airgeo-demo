@@ -311,3 +311,11 @@ def test_rotation_handle_keeps_off_vertices_where_angle_values_sit():
                   {"kind": "rect", "pts": [(310.0, 110.0), (810.0, 110.0), (810.0, 610.0), (310.0, 610.0)]}):
         hx, hy = tool.handle(shape)                                  # chữ nhật: góc nào cũng có đỉnh -> ra xa hơn
         assert all(math.dist((hx, hy), p) > 60 for p in shape["pts"])
+
+
+def test_rotation_handle_stays_below_visible_toolbar():
+    c = Controller(Config(), 1280, 720)
+    c.do("bar")                                                        # hiện dải nút
+    tri = {"kind": "triangle", "pts": [(310.0, 300.0), (810.0, 300.0), (310.0, 90.0)]}   # góc trên phải trống
+    hx, hy = c.tools["select"].handle(tri)
+    assert hy - 14 > c.toolbar.height

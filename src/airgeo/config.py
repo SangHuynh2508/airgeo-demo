@@ -26,10 +26,8 @@ class Config:
     trail_len: int = 60                # số điểm vết ở chế độ so sánh (phím M)
     # Tương tác (giai đoạn 2) – chỉnh sau khi thử webcam
     toolbar_height: int = 60           # dải trạng thái + nút dự phòng ở mép trên (áp 2 ngón vẫn với tới)
-    key_size: int = 80                 # cạnh phím số trên không (px); tự thu nhỏ nếu khung hình thấp
     hit_radius: float = 15.0           # con trỏ cách nét <= bao nhiêu px thì trúng hình
     label_radius: float = 25.0         # bán kính vùng bấm nhãn cạnh
     drag_threshold: float = 10.0       # đi quá bao nhiêu px thì tính là kéo
-    min_side_px: float = 10.0          # cạnh / bán kính nhỏ nhất khi dựng lại hình
     history_limit: int = 50            # số bước Undo
     confirm_window: float = 2.0        # giây để bấm "Xoa het" lần 2

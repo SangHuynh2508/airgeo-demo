@@ -30,7 +30,7 @@ class SelectTool:
         self.drag_threshold = config.drag_threshold
         self.menu_x = width - MENU_W - 10
         self.menu_y = config.toolbar_height + 40          # chừa chỗ chữ "Tinh:"
-        self.top = config.toolbar_height
+        self.top = 0                # mép trên vùng vẽ: 0 khi dải nút ẩn (mặc định), Controller cập nhật khi bật / tắt
         self.trash = (width - TRASH_INSET, height - TRASH_INSET)
         self.over_trash = False     # đang kéo hình, con trỏ trong thùng rác (nhả là xóa)
         self.rotation = None        # đang xoay: {"pivot", "a0", "pts0", "kind", "applied", "pos"}
@@ -58,7 +58,7 @@ class SelectTool:
         for d in (HANDLE_OFFSET, HANDLE_OFFSET + 28):    # góc nào cũng có đỉnh (chữ nhật) thì ra xa hơn
             corners = [(max(xs) + d, min(ys) - d), (min(xs) - d, min(ys) - d), (max(xs) + d, max(ys) + d),
                        (min(xs) - d, max(ys) + d)]
-            ok = [c for c in corners if c[1] >= 40 and 20 <= c[0] <= self.menu_x - 20]
+            ok = [c for c in corners if c[1] >= self.top + 40 and 20 <= c[0] <= self.menu_x - 20]
             free = [c for c in ok if all(math.dist(c, p) > 60 for p in shape["pts"])]   # chừa chỗ tên đỉnh / số góc
             if free:
                 return free[0]

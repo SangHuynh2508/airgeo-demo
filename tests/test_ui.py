@@ -339,3 +339,14 @@ def test_height_label_sits_inside_the_triangle():
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_height(frame, [(300.0, 500.0), (600.0, 500.0), (600.0, 100.0)])   # đường cao CB trùng cạnh BC
     assert frame[280:320, 570:596].any() and not frame[280:320, 605:640].any()   # "h" bên trong, nhãn BC bên ngoài
+
+
+def test_angle_chip_pushed_back_on_screen_moves_off_the_vertex():
+    from airgeo.ui.render import angle_chip_center
+    hw, hh = 70, 17
+    x, y = angle_chip_center((640, 360), (1.0, 0.0), hw, hh, 1280, 720)
+    assert (x, y) == (640 - hw - 34, 360)                              # bình thường: theo phân giác ngoài
+    for v, b in (((110, 360), (1.0, 0.0)), ((1170, 360), (-1.0, 0.0)), ((640, 40), (0.0, 1.0))):
+        x, y = angle_chip_center(v, b, hw, hh, 1280, 720)
+        assert not (x - hw - 4 <= v[0] <= x + hw + 4 and y - hh - 4 <= v[1] <= y + hh + 4), v
+        assert hw <= x <= 1280 - hw and hh <= y <= 720 - hh

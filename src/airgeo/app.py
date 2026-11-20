@@ -3,12 +3,14 @@
 FPS làm mượt bằng EMA dựa trên paint.py của AI-Virtual-Painter (MIT, Sagnik Barman):
 https://github.com/hanessn1/AI-Virtual-Painter
 """
+import threading
 import time
 from collections import deque
 
 import cv2
 
 from airgeo.config import Config
+from airgeo.gesture.digits import read_digit
 from airgeo.gesture.pose import classify
 from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerTracker
@@ -32,6 +34,7 @@ def run(config: Config):
     except RuntimeError as e:
         raise SystemExit(str(e))
     tracker = HandTracker(model_complexity=config.model_complexity)
+    threading.Thread(target=read_digit, args=([[(0, 0), (0, 1)]],), daemon=True).start()   # huấn luyện kNN trước
     pf, pointer, ctl = PinchFilter(config), PointerTracker(), None
     cursor = None                 # con trỏ frame trước: quyết định cử chỉ bấm (chụm / 2 ngón) cho frame này
     logger = CsvLogger(config.data_dir)

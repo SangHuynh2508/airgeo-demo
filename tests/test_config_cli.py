@@ -29,8 +29,8 @@ def test_cli_rejects_bad_model():
 
 def test_interaction_defaults():
     c = Config()
-    assert (c.toolbar_height, c.key_size, c.hit_radius, c.label_radius) == (60, 80, 15, 25)
-    assert (c.drag_threshold, c.min_side_px, c.history_limit, c.confirm_window) == (10, 10, 50, 2.0)
+    assert (c.toolbar_height, c.hit_radius, c.label_radius) == (60, 15, 25)
+    assert (c.drag_threshold, c.history_limit, c.confirm_window) == (10, 50, 2.0)
 
 
 def test_two_finger_defaults():

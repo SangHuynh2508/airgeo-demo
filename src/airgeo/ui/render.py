@@ -95,6 +95,21 @@ def _value(img, s, center):
     _label_chip(img, [s], (int(center[0] - w / 2), int(center[1] - h / 2)), VALUE_SIZE)
 
 
+def angle_chip_center(v, b, hw, hh, W, H):
+    """Tâm viên số đo góc (nửa khung hw x hh) ở đỉnh v, b = phân giác trong (đơn vị): trên phân giác ngoài, đủ xa để
+    cả viên nằm ngoài đỉnh, giữ trong khung hình. Đỉnh sát mép (bị kẹp ngược về đè đỉnh) thì đặt ngay trên / dưới đỉnh."""
+    bx, by = b
+    reach = min(hw / max(abs(bx), 1e-3), hh / max(abs(by), 1e-3)) + LEADER
+    x = min(max(v[0] - bx * reach, hw + 4), W - hw - 4)
+    y = min(max(v[1] - by * reach, hh + 4), H - hh - 4)
+    if abs(x - v[0]) < hw + 6 and abs(y - v[1]) < hh + 6:
+        for s in ((1, -1) if -by > 0.1 else (-1, 1)):          # ưu tiên phía ngoài hình theo chiều dọc
+            y = v[1] + s * (hh + LEADER)
+            if hh + 4 <= y <= H - hh - 4:
+                break
+    return x, y
+
+
 def draw_angle(img, v, p, n, angle, name=None):
     """Ký hiệu góc tại đỉnh v (2 cạnh tới p, n) như SGK: góc vuông = ô vuông nhỏ, góc khác = cung tròn nhỏ.
     Có name: viên "góc A = 60°" đặt ngoài hình theo phân giác ngoài, đường chỉ mảnh từ viên tới ký hiệu
@@ -123,10 +138,7 @@ def draw_angle(img, v, p, n, angle, name=None):
     label = f"góc {name} = {angle:.0f}°"
     w, h = text_size([label], VALUE_SIZE)
     hw, hh = w / 2 + 10, h / 2 + 5                # nửa khung viên (cả nền tối)
-    # tâm viên trên phân giác ngoài, đủ xa để cả viên nằm ngoài đỉnh; giữ trong khung hình
-    reach = min(hw / max(abs(bx), 1e-3), hh / max(abs(by), 1e-3)) + LEADER
-    H, W = img.shape[:2]
-    c = (min(max(v[0] - bx * reach, hw + 4), W - hw - 4), min(max(v[1] - by * reach, hh + 4), H - hh - 4))
+    c = angle_chip_center(v, (bx, by), hw, hh, img.shape[1], img.shape[0])
     edge = min(hw / max(abs(c[0] - v[0]), 1e-3), hh / max(abs(c[1] - v[1]), 1e-3), 1.0)
     start = (c[0] + (v[0] - c[0]) * edge, c[1] + (v[1] - c[1]) * edge)      # mép viên phía đỉnh
     cv2.line(img, ip(start), ip((v[0] + bx * mark, v[1] + by * mark)), ANGLE_COLOR, 1, cv2.LINE_AA)

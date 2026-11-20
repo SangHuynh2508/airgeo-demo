@@ -9,16 +9,14 @@ Bảng có đủ các ô của hình (tam giác AB BC CA, chữ nhật dai rong,
 hình 1 lần. Chưa có tỉ lệ: ô đầu tiên có số làm chuẩn, ô trống giữ tỉ lệ cạnh như đang vẽ. Dựng xong hình được
 phóng to ra giữa vùng vẽ (construct.fit) – tỉ lệ px/cm nhân theo nên số đo giữ đúng số đã nhập.
 """
-import math
-
 from airgeo.geometry.construct import build, current_lengths, field_names, fit
 from airgeo.geometry.units import fmt_length, to_px, to_units, trim
 from airgeo.gesture.digits import DigitReader
 
 MAX_LEN = 8
 GAP = 12
+PAD_SLOP = 16       # chụm (trung điểm cái-trỏ) lệch mép ô viết tới chừng này vẫn là viết; ô / nút cách xa hơn
 BUTTONS = ["dot", "back", "clear", "ok", "cancel"]
-EVERYWHERE = (-math.inf, -math.inf, math.inf, math.inf)    # dựng hình không giới hạn: phóng to / thu nhỏ sau
 
 
 class EditPanel:
@@ -35,8 +33,9 @@ class EditPanel:
         g = GAP
         pw = min(760, self.W - 2 * g)
         bh = 56 if self.H >= 600 else 44
-        pad_h = max(110, min(220, self.H - 2 * g - (40 + 60 + bh + 34 + 5 * g)))
-        ph = 40 + 60 + pad_h + bh + 34 + 5 * g
+        s = 2 * PAD_SLOP
+        pad_h = max(110, min(220, self.H - 2 * g - (40 + 60 + bh + 34 + 5 * g + s)))
+        ph = 40 + 60 + pad_h + bh + 34 + 5 * g + s
         x0, y0 = (self.W - pw) // 2, max(g, (self.H - ph) // 2)
         ix, iw = x0 + g, pw - 2 * g
         self.rect = (x0, y0, x0 + pw, y0 + ph)
@@ -44,9 +43,9 @@ class EditPanel:
         fy = y0 + g + 40
         fw = (iw - 2 * g) // 3
         self.field_rects = [(ix + i * (fw + g), fy, ix + i * (fw + g) + fw, fy + 60) for i in range(3)]
-        py = fy + 60 + g
+        py = fy + 60 + g + PAD_SLOP
         self.pad_rect = (ix, py, ix + iw, py + pad_h)
-        by = py + pad_h + g
+        by = py + pad_h + g + PAD_SLOP
         bw = (iw - 4 * g) // 5
         self.button_rects = {b: (ix + i * (bw + g), by, ix + i * (bw + g) + bw, by + bh) for i, b in enumerate(BUTTONS)}
         self.error_pos = (ix, by + bh + g // 2)
@@ -93,7 +92,7 @@ class EditPanel:
 
     def in_pad(self, pos):
         x0, y0, x1, y1 = self.pad_rect
-        return x0 <= pos[0] <= x1 and y0 <= pos[1] <= y1
+        return x0 - PAD_SLOP <= pos[0] <= x1 + PAD_SLOP and y0 - PAD_SLOP <= pos[1] <= y1 + PAD_SLOP
 
     def _pen(self, ev):
         """Nét viết trong ô viết: down bắt đầu, move nối thêm, up nhận dạng lại cả dãy."""
@@ -155,7 +154,7 @@ class EditPanel:
             scale = cur[first] / to_px(entered[first], unit, 1.0)
         lengths = {f: to_px(entered[f], unit, scale) if f in entered else cur[f] for f in self.fields}
         try:
-            new = build(shape, lengths, EVERYWHERE, 0.0, lambda px: fmt_length(px, scale, unit))
+            new = build(shape, lengths, lambda px: fmt_length(px, scale, unit))    # phóng to / thu nhỏ sau
         except ValueError as e:
             self.error = str(e)
             return False
