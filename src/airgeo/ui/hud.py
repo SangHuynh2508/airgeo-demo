@@ -10,7 +10,7 @@ TOOL_NAMES = {"draw": "Ve", "select": "Chon", "erase": "Xoa"}
 GESTURE_NAMES = {"two_finger": "2 ngon", "pinch": "chum"}
 HELP = [
     "Ve: chum cai+tro | Nut, Chon, Xoa: ap 2 ngon tro+giua | 0/1/2: loc  [ ]: mincutoff  ; ': beta  - =: MA n  , .: nguong chum",
-    "V/G/X: Ve/Chon/Xoa  N: don vi  T: dai nut  U: undo  C: xoa het  M: so sanh  P: 2D/3D  L: xuong  R: CSV  H: an  F: toan man hinh  D: tat ky thuat  Q: thoat",
+    "V/G/X: Ve/Chon/Xoa  N: don vi  T: dai nut  U: undo  C: xoa het  M: so sanh  S: on dinh bam  P: 2D/3D  L: xuong  R: CSV  H: an  F: toan man hinh  D: tat ky thuat  Q: thoat",
 ]
 
 
@@ -27,6 +27,7 @@ def hud_lines(pf, board, tool, fps, compare, rec_session_id):
         f"1euro: {pf.one_euro.describe()}  MA: {pf.moving_avg.describe()}",
         "So sanh: bat" if compare else "So sanh: tat",
         f"Chum: {state}  ratio {ratio}",
+        f"On dinh diem bam: {'bat' if pf.stabilize else 'tat'} (lui {pf.rewind:.2f}s)",
         f"Bam: {GESTURE_NAMES[pinch.gesture]}  Do theo: {pinch.mode.upper()}  on<{pinch.on_ratio:.2f} off>{pinch.off_ratio:.2f}",
     ]
     if board.last_info:

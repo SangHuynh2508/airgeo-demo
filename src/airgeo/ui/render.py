@@ -194,6 +194,9 @@ def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
     if res.fpt:                    # con trỏ to cho học sinh nhìn từ xa; tô đặc = đang chụm (đang vẽ / bấm)
         cv2.circle(img, ip(res.fpt), CURSOR_R, PINCH_COLOR if res.pinched else FILT_COLOR,
                    -1 if res.pinched else 3, cv2.LINE_AA)
+        if not res.pinched and res.closure > 0.05:    # vòng ngoài co dần khi ngón khép: sắp "ấn"
+            r = CURSOR_R * (1 + 1.2 * (1 - res.closure))
+            cv2.circle(img, ip(res.fpt), int(round(r)), FILT_COLOR, 2, cv2.LINE_AA)
     elif res.holding and hand:
         cv2.circle(img, ip(draw_point(hand, gesture)), CURSOR_R, HOLD_COLOR, 3, cv2.LINE_AA)
 

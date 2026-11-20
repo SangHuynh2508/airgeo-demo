@@ -5,9 +5,15 @@ vẽ bằng chụm ngón cái + trỏ, còn thanh nút / bảng nhập / Chọn 
 Đang bấm dở thì giữ cử chỉ đó tới khi nhả. Con trỏ lúc rê luôn là đầu ngón trỏ; lúc chụm để vẽ
 thì là trung điểm ngón cái – trỏ (xem gesture/pinch.py: draw_point).
 
+Ổn định điểm bấm ("hiệu ứng Heisenberg": chính động tác khép ngón kéo lệch con trỏ, Bowman 2001):
+lúc nhận ra bấm, điểm bấm lấy vị trí con trỏ `press_rewind` giây trước (lúc ngón chưa khép); suốt lần bấm con
+trỏ = điểm nguồn + độ lệch cố định (đi theo tay, không nhảy); nhả ra thì độ lệch giảm dần về 0 trong DECAY giây.
+Phím S tắt / bật (so sánh trong bài đo bấm mục tiêu).
+
 Không dùng camera hay cửa sổ nên test được bằng bàn tay giả (tests/conftest.py).
 Tách từ session.py của giai đoạn 1; phần nét/hình chuyển sang tools/draw.py + document/board.py.
 """
+from collections import deque
 from dataclasses import dataclass
 
 from airgeo.config import Config
@@ -21,16 +27,28 @@ class FrameResult:
     fpt: tuple[float, float] | None   # điểm đã lọc = con trỏ
     pinched: bool
     holding: bool                     # đang chụm nhưng frame không tin được (xem gesture/pinch.py)
+    closure: float = 0.0              # mức khép ngón 0..1 (vòng phản hồi quanh con trỏ)
+
+
+DECAY = 0.15        # giây để con trỏ trượt từ điểm bấm về lại đầu ngón sau khi nhả
 
 
 class PinchFilter:
     def __init__(self, config: Config):
-        g, m = config.pinch_grace, config.pinch_mode
-        self.detectors = {"pinch": PinchDetector(config.pinch_on, config.pinch_off, g, m, "pinch"),
-                          "two_finger": PinchDetector(config.two_finger_on, config.two_finger_off, g, m, "two_finger")}
+        g, m, c = config.pinch_grace, config.pinch_mode, config.release_confirm
+        self.detectors = {"pinch": PinchDetector(config.pinch_on, config.pinch_off, g, m, "pinch", c),
+                          "two_finger": PinchDetector(config.two_finger_on, config.two_finger_off, g, m,
+                                                      "two_finger", c)}
         self.active = "pinch"
         self._blocked = False   # cử chỉ mới đã "bấm" sẵn lúc đổi sang -> phải nhả ra rồi bấm lại
         self._source = "p8"     # điểm con trỏ đang lấy từ đâu: "p8" | "mid"
+        self.stabilize = True   # ổn định điểm bấm (phím S)
+        self.rewind = config.press_rewind
+        self._hist = deque()    # (t, con trỏ) lúc rê, ~0.5 s gần nhất
+        self._pressing = False  # đã có điểm của lần bấm hiện tại
+        self._offset = (0.0, 0.0)
+        self._released = None   # (t nhả, độ lệch lúc nhả) – độ lệch đang giảm dần
+        self._last_in = None    # điểm cuối cùng đưa vào bộ lọc
         self.moving_avg = MovingAverage(config.ma_window)
         self.one_euro = OneEuro(config.one_euro_mincutoff, config.one_euro_beta, config.one_euro_dcutoff)
         self.filters = {"none": NoFilter(), "moving_avg": self.moving_avg, "one_euro": self.one_euro}
@@ -55,14 +73,45 @@ class PinchFilter:
         raw = fpt = None
         if hand and not holding:
             source = "mid" if pinched and self.active == "pinch" else "p8"
-            if source != self._source:      # điểm con trỏ đổi chỗ: nhảy thẳng, không để bộ lọc kéo vệt
-                self._source = source
-                self.flt.reset()
             raw = draw_point(hand) if source == "mid" else hand["p8"]
-            fpt = self.flt.filter(*raw, t)
+            if not self.stabilize:
+                if source != self._source:  # điểm con trỏ đổi chỗ: nhảy thẳng, không để bộ lọc kéo vệt
+                    self.flt.reset()
+                self._offset = (0.0, 0.0)
+            elif pinched and not self._pressing:
+                aim = self._aim(t)          # vị trí con trỏ trước lúc ngón khép
+                if aim is not None:
+                    self._offset = (aim[0] - raw[0], aim[1] - raw[1])
+                    self.flt.reset()        # bộ lọc bắt đầu đúng tại điểm bấm
+                self._released = None
+            elif not pinched and self._pressing and self._last_in is not None:
+                # vừa nhả: giữ con trỏ tại chỗ rồi trượt dần về đầu ngón
+                self._released = (t, (self._last_in[0] - raw[0], self._last_in[1] - raw[1]))
+            if not pinched and self._released:
+                t0, (ox, oy) = self._released
+                k = max(0.0, 1 - (t - t0) / DECAY)
+                self._offset = (ox * k, oy * k)
+                if k == 0:
+                    self._released = None
+            self._source, self._pressing = source, pinched
+            self._last_in = (raw[0] + self._offset[0], raw[1] + self._offset[1])
+            fpt = self.flt.filter(*self._last_in, t)
+            if not pinched:
+                self._hist.append((t, fpt))
+                while self._hist and t - self._hist[0][0] > 0.5:
+                    self._hist.popleft()
         elif not hand and not pinched:
             self.flt.reset()  # tránh điểm lọc bị "kéo" từ vị trí cũ khi tay xuất hiện lại
-        return FrameResult(raw, fpt, pinched, holding)
+            self._hist.clear()
+            self._pressing, self._offset, self._released, self._last_in = False, (0.0, 0.0), None, None
+        return FrameResult(raw, fpt, pinched, holding, det.closure)
+
+    def _aim(self, t):
+        """Vị trí con trỏ lúc t - rewind (lấy điểm mới nhất không muộn hơn); lịch sử ngắn hơn thì lấy điểm cũ nhất."""
+        if not self._hist:
+            return None
+        before = [p for tt, p in self._hist if tt <= t - self.rewind]
+        return before[-1] if before else self._hist[0][1]
 
     def toggle_mode(self):
         """Phím P: đo 2D/3D cho cả 2 cử chỉ."""

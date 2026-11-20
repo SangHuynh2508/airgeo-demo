@@ -148,6 +148,9 @@ def run(config: Config):
                 show_help = not show_help
             elif key == ord("d"):
                 tech = not tech
+            elif key == ord("s"):
+                pf.stabilize = not pf.stabilize
+                status_msg, status_until = f"Ổn định điểm bấm: {'bật' if pf.stabilize else 'tắt'}", t + 2
             elif key == ord("f"):
                 full = not full
                 cv2.setWindowProperty(WIN, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN if full else cv2.WINDOW_NORMAL)

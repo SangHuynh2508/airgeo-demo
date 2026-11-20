@@ -50,7 +50,8 @@ def test_csv_row_keeps_raw_landmarks_and_mode(make_hand):
 def test_hover_cursor_is_index_tip_and_pinch_draws_at_midpoint(make_hand):
     pf = _pf()
     assert pf.step(make_hand(100, 200, ratio=0.6), 0.0, want="pinch").fpt == (100, 170)   # p8
-    assert pf.step(make_hand(100, 200, ratio=0.1), 0.1, want="pinch").fpt == (100, 200)   # trung điểm 4-8
+    res = pf.step(make_hand(100, 200, ratio=0.1), 0.1, want="pinch")
+    assert res.raw == (100, 200) and res.fpt == (100, 170)   # vẽ theo trung điểm 4-8, bắt đầu đúng chỗ đang trỏ
 
 
 def test_two_fingers_press_only_where_wanted_and_need_a_fresh_close(make_two_finger):
@@ -81,3 +82,51 @@ def test_fingers_together_palm_is_not_a_two_finger_press(make_two_finger):
     assert not pf.step(palm, 0.1, want="two_finger").pinched       # xòe tay khép ngón: là tư thế, không phải bấm
     pf.step(make_two_finger(300, 200, ratio=0.6), 0.2, want="two_finger")
     assert pf.step(h, 0.3, want="two_finger").pinched
+
+
+def _press_after_drift(pf, make_hand):
+    """Rê yên ở x=100 tới 0.2 s, ngón khép kéo tay sang x=120, 140, chụm được ở x=150 lúc 0.3 s."""
+    for i in range(7):
+        pf.step(make_hand(100, 200, ratio=0.6), i * 0.033)           # đầu ngón trỏ (100, 170)
+    pf.step(make_hand(120, 200, ratio=0.6), 0.233)
+    pf.step(make_hand(140, 200, ratio=0.6), 0.266)
+    return pf.step(make_hand(150, 200, ratio=0.1), 0.3)
+
+
+def test_press_point_is_where_cursor_was_before_fingers_closed(make_hand):
+    pf = _pf()
+    res = _press_after_drift(pf, make_hand)
+    assert res.pinched and res.fpt == (100, 170)                     # vị trí 0.12 s trước, không phải (150, 200)
+    assert pf.step(make_hand(160, 200, ratio=0.1), 0.333).fpt == (110, 170)   # đi theo tay, không nhảy
+
+
+def test_release_does_not_jump_then_eases_back_to_fingertip(make_hand):
+    pf = _pf()
+    _press_after_drift(pf, make_hand)
+    pf.step(make_hand(160, 200, ratio=0.1), 0.333)
+    res = pf.step(make_hand(160, 200, ratio=0.6), 0.4)               # mở ngón (tăng dần)
+    res = pf.step(make_hand(160, 200, ratio=0.6), 0.5)
+    res = pf.step(make_hand(160, 200, ratio=0.6), 0.65)          # nhảy 0.1 -> 0.6: giữ 0.2 s rồi nhả
+    assert not res.pinched
+    first = res.fpt
+    assert abs(first[0] - 110) < 25                                  # ngay sau nhả vẫn gần chỗ cũ
+    assert pf.step(make_hand(160, 200, ratio=0.6), 0.9).fpt == (160, 170)    # rồi về đầu ngón trỏ
+
+
+def test_stabilize_off_keeps_old_behaviour(make_hand):
+    pf = _pf()
+    pf.stabilize = False
+    assert _press_after_drift(pf, make_hand).fpt == (150, 200)
+
+
+def test_hand_lost_forgets_old_positions(make_hand):
+    pf = _pf()
+    pf.step(make_hand(100, 200, ratio=0.6), 0.0)
+    pf.step(None, 0.033)
+    assert pf.step(make_hand(400, 300, ratio=0.1), 0.066).fpt == (400, 300)
+
+
+def test_frame_result_carries_closure(make_hand):
+    pf = _pf()
+    assert pf.step(make_hand(100, 200, ratio=0.6), 0.0).closure == 0.0
+    assert abs(pf.step(make_hand(100, 200, ratio=0.275), 0.033).closure - 0.5) < 1e-9
