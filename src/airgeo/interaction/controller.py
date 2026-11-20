@@ -38,7 +38,7 @@ class Controller:
         self._fist_ok = True        # False sau mỗi lần nhả: tay thả lỏng khép hờ sau khi vẽ không được là Undo
         self._owner = None          # ai nhận lần chụm hiện tại: "panel" | "toolbar" | "tool"
         self.legend_until = 0.0     # hiện bảng gợi ý tới lúc này (kể cả khi bảng đã có hình)
-        self.message, self.message_until = "", 0.0   # thông báo ngắn trên màn hình (vd. bị chặn đè hình)
+        self.message, self.message_until = "", 0.0   # thông báo ngắn trên màn hình (vd. Đã xóa hết)
 
     @property
     def bounds(self):
@@ -91,7 +91,7 @@ class Controller:
         Bảng nhập mở: ô viết số dùng chụm (viết như vẽ), nút và ô cạnh dùng 2 ngón."""
         if self.panel.is_open:
             return "pinch" if pos is not None and self.panel.in_pad(pos) else "two_finger"
-        if self.tool == "draw" and not self.panel.is_open and not self.menu.is_open and (pos is None or not self.toolbar.contains(pos)):
+        if self.tool == "draw" and not self.menu.is_open and (pos is None or not self.toolbar.contains(pos)):
             return "pinch"
         return "two_finger"
 

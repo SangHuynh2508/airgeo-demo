@@ -20,7 +20,7 @@ def square_raw(n=20):
 def test_add_stroke_gives_ids_and_last_info():
     b = Board()
     s1, s2 = b.add_stroke(line_raw()), b.add_stroke(line_raw(400))
-    assert (s1["id"], s2["id"]) == (1, 2) and s1["kind"] == "line" and s1["locked"] is False
+    assert (s1["id"], s2["id"]) == (1, 2) and s1["kind"] == "line"
     assert b.last_info.startswith("line")
 
 
@@ -49,24 +49,23 @@ def test_noop_operations_add_no_undo_step():
     assert b.shapes == []             # 1 lần Undo đã gỡ đúng nét vừa vẽ
 
 
-def test_translate_moves_points_raw_and_center():
+def test_translate_moves_points_and_center():
     b = Board()
     s = b.add_stroke(line_raw())
     b.begin()
     b.translate(s["id"], 10, -5)
-    assert b.shapes[0]["pts"][0] == (110, 295) and b.shapes[0]["raw"][0][:2] == (110, 295)
-    b.shapes.append({"kind": "circle", "pts": [], "center": (0.0, 0.0), "radius": 5.0,
-                     "raw": [(1, 2, 0.0)], "id": 9, "locked": False})
+    assert b.shapes[0]["pts"][0] == (110, 295)
+    b.shapes.append({"kind": "circle", "pts": [], "center": (0.0, 0.0), "radius": 5.0, "id": 9})
     b.translate(9, 10, -5)
-    assert b.get(9)["center"] == (10.0, -5.0) and b.get(9)["raw"] == [(11, -3, 0.0)]
+    assert b.get(9)["center"] == (10.0, -5.0)
     b.translate(12345, 1, 1)          # id không còn: bỏ qua
 
 
 def test_apply_edit_is_one_undo_step_including_scale():
     b = Board()
     s = b.add_stroke(line_raw())
-    b.apply_edit(s["id"], dict(s, pts=[(0, 0), (1, 1)], locked=True), 50.0)
-    assert b.scale == 50.0 and b.shapes[0]["locked"] is True
+    b.apply_edit(s["id"], dict(s, pts=[(0, 0), (1, 1)]), 50.0)
+    assert b.scale == 50.0 and b.shapes[0]["pts"] == [(0, 0), (1, 1)]
     b.undo()
     assert b.scale is None and b.shapes[0]["pts"] == s["pts"]
 
@@ -75,11 +74,11 @@ def test_redo_reapplies_undone_steps_and_new_action_clears_it():
     b = Board()
     assert b.redo() is False                          # chưa Undo gì: không có gì để làm lại
     s = b.add_stroke(line_raw())
-    b.apply_edit(s["id"], dict(s, pts=[(0, 0), (1, 1)], locked=True), 50.0)
+    b.apply_edit(s["id"], dict(s, pts=[(0, 0), (1, 1)]), 50.0)
     b.undo()
     b.undo()
     assert b.shapes == [] and b.redo() is True and b.shapes[0]["pts"] == s["pts"] and b.scale is None
-    assert b.redo() is True and b.scale == 50.0 and b.shapes[0]["locked"] is True
+    assert b.redo() is True and b.scale == 50.0 and b.shapes[0]["pts"] == [(0, 0), (1, 1)]
     assert b.redo() is False
     b.undo()
     b.begin()                                         # thao tác mới: nhánh làm lại cũ bỏ đi

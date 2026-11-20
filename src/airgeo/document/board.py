@@ -2,8 +2,7 @@
 Mỗi lúc 1 hình: vẽ hình mới thì thay hình cũ (Undo lấy lại).
 
 Mọi thay đổi đi qua các hàm ở đây; trước mỗi thao tác lưu 1 bản sao (shapes + scale) để Undo.
-Hình là dict: id, kind, pts, raw = [(x, y, t)] của nét gốc, locked (đã sửa số đo);
-hình tròn thêm center, radius.
+Hình là dict: id, kind, pts; hình tròn thêm center, radius.
 """
 import copy
 from collections import deque
@@ -19,9 +18,7 @@ from airgeo.geometry.units import UNITS
 def make_shape(raw):
     """raw: [(x, y, t)] của nét -> hình đã nhận dạng, nắn (gần vuông / đều / cân...) và làm thẳng trục.
     Không ra hình thì kind = "free"."""
-    shape = recognize(raw)
-    shape["raw"] = raw
-    return straighten(tidy(shape))
+    return straighten(tidy(recognize(raw)))
 
 
 def describe_result(shape):
@@ -75,7 +72,7 @@ class Board:
         if shape["kind"] == "free":
             return shape
         self.begin()
-        shape["id"], shape["locked"] = self._next_id, False
+        shape["id"] = self._next_id
         self._next_id += 1
         self.shapes, self.scale = [shape], None
         return shape
@@ -107,7 +104,6 @@ class Board:
         if s is None:
             return
         s["pts"] = [(x + dx, y + dy) for x, y in s["pts"]]
-        s["raw"] = [(x + dx, y + dy, t) for x, y, t in s["raw"]]
         if "center" in s:
             cx, cy = s["center"]
             s["center"] = (cx + dx, cy + dy)
@@ -118,7 +114,6 @@ class Board:
         if s is None:
             return
         s["pts"] = rotate_points(s["pts"], deg, about)
-        s["raw"] = rotate_points(s["raw"], deg, about)
         if "center" in s:
             s["center"] = rotate_points([s["center"]], deg, about)[0]
 

@@ -28,7 +28,7 @@ class HandTracker:
         """frame_bgr: ảnh BGR (đã lật gương). t: time.perf_counter() lúc đọc frame.
 
         Trả về None nếu không thấy tay, ngược lại dict:
-          t, p4, p8 (pixel, float), pts (cả 21 điểm, pixel – để vẽ khung xương / đo 2D)
+          p4, p8 (pixel, float), pts (cả 21 điểm, pixel – để vẽ khung xương / đo 2D)
           và w0, w4, w8, w9 (tọa độ 3D ước lượng, mét, gốc ở tâm bàn tay).
         """
         h, w = frame_bgr.shape[:2]
@@ -49,7 +49,7 @@ class HandTracker:
             return (wl[i].x, wl[i].y, wl[i].z)
 
         pts = [px(i) for i in range(21)]
-        return {"t": t, "p4": pts[4], "p8": pts[8], "pts": pts,
+        return {"p4": pts[4], "p8": pts[8], "pts": pts,
                 "w0": world(0), "w4": world(4), "w8": world(8), "w9": world(9), "w12": world(12)}
 
     def close(self):

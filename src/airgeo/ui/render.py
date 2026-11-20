@@ -10,7 +10,7 @@ import numpy as np
 
 from airgeo.geometry.construct import FIELD_LABELS, current_lengths, label_anchors, label_edges
 from airgeo.geometry.formulas import formula, triangle_height
-from airgeo.geometry.measure import measure
+from airgeo.geometry.measure import centroid, measure
 from airgeo.geometry.rotate import edge_angle
 from airgeo.geometry.shapes import is_right, shape_name
 from airgeo.geometry.units import fmt_length, round_sum
@@ -247,7 +247,7 @@ def draw_letters(img, s, color, avoid=()):
     if s["kind"] not in ("triangle", "rect"):
         return
     pts = s["pts"]
-    cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+    cx, cy = centroid(pts)
     for name, (x, y) in zip("ABCD", pts):
         d = math.hypot(x - cx, y - cy) or 1.0
         lx, ly = x + (x - cx) / d * 24, y + (y - cy) / d * 24          # tâm chữ (chữ cao ~20 px)
@@ -256,7 +256,7 @@ def draw_letters(img, s, color, avoid=()):
 
 
 def draw_selection(img, s, color=SELECT_COLOR, scale=None, unit="cm", letters=True):
-    """Viền nổi bật hình đang chọn (đỏ khi sắp xóa / kéo đè lên hình khác); tên đỉnh (letters); hình tròn có đường
+    """Viền nổi bật hình đang chọn (đỏ khi sắp xóa); tên đỉnh (letters); hình tròn có đường
     bán kính; nhãn cạnh bấm được để sửa số đo, ghi "AB = 3 cm" khi đã có tỉ lệ."""
     draw_shape_halo(img, s, color, 6)
     if letters:
@@ -373,7 +373,7 @@ def draw_height(img, pts, scale=None, unit="cm"):
              else "h" if scale is None else f"h = {fmt_length(h, scale, unit)}")
     # viên nằm cạnh đường cao, lệch theo AB vào phía trong tam giác: đường cao trùng cạnh thì không đè nhãn cạnh
     m = ((c[0] + foot[0]) / 2, (c[1] + foot[1]) / 2)
-    g = (sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3)
+    g = centroid(pts)
     ux, uy = (b[0] - a[0]) / math.dist(a, b), (b[1] - a[1]) / math.dist(a, b)
     side = 1 if (g[0] - m[0]) * ux + (g[1] - m[1]) * uy >= 0 else -1
     reach = side * (text_size([label], VALUE_SIZE)[0] / 2 + 20)        # nửa viên (cả lề nền 10) + 10 px

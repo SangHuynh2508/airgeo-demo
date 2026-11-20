@@ -15,10 +15,9 @@ def test_right_triangle_3_4_5():
     assert abs(sum(tri["angles"]) - 180) < 1e-9
 
 
-def test_circle_line_and_free():
+def test_circle_and_free():
     c = measure({"kind": "circle", "radius": 1})
     assert abs(c["area"] - math.pi) < 1e-12 and abs(c["perimeter"] - 2 * math.pi) < 1e-12
-    assert measure({"kind": "line", "pts": [(0, 0), (3, 4)]}) == {"sides": [5.0]}
     assert measure({"kind": "free", "pts": []}) == {}
 
 

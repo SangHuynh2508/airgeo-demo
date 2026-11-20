@@ -14,7 +14,7 @@ Cả lần kéo / xoay là 1 bước Undo (begin() 1 lần lúc bắt đầu). R
 """
 import math
 
-from airgeo.geometry.hit import _bbox, contains, distance_to_shape
+from airgeo.geometry.hit import bbox, contains, distance_to_shape
 from airgeo.geometry.rotate import SNAP_DEG, center, rotate_points, snap_delta
 
 # độ dài cạnh / bán kính luôn ghi trên nhãn cạnh (draw_selection) nên cột Tính chỉ còn góc, chu vi, diện tích
@@ -175,7 +175,7 @@ class SelectTool:
         """Dời (dx, dy) sao cho khung bao hình vẫn trong vùng vẽ; hình đã lỡ ra ngoài thì chỉ không cho ra thêm."""
         if shape is None:
             return dx, dy
-        x0, y0, x1, y1 = _bbox(shape)
+        x0, y0, x1, y1 = bbox(shape)
         return (min(max(dx, min(0, -x0)), max(0, self.width - x1)),
                 min(max(dy, min(0, self.top - y0)), max(0, self.height - y1)))
 

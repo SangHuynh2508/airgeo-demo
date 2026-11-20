@@ -17,10 +17,14 @@ def polygon_metrics(pts):
     return {"sides": sides, "angles": angles, "perimeter": sum(sides), "area": area}
 
 
+def centroid(pts):
+    """Trọng tâm các đỉnh (trung bình cộng)."""
+    n = len(pts)
+    return sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n
+
+
 def measure(shape):
     kind = shape["kind"]
-    if kind == "line":
-        return {"sides": [math.dist(*shape["pts"])]}
     if kind == "circle":
         r = shape["radius"]
         return {"radius": r, "perimeter": 2 * math.pi * r, "area": math.pi * r * r}

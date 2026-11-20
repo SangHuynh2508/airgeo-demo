@@ -21,7 +21,7 @@ BUTTONS = ["dot", "back", "clear", "ok", "cancel"]
 
 class EditPanel:
     def __init__(self, config, width, height):
-        self.W, self.H, self.top = width, height, config.toolbar_height
+        self.W, self.H = width, height
         self.is_open = False
         self.kind, self.fields, self.values = None, [], {}
         self.focus, self.fresh, self.error = None, False, ""

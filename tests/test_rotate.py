@@ -37,14 +37,12 @@ def test_smart_straightens_slightly_tilted_rect_and_line_only():
     assert steep["pts"][1][1] - steep["pts"][0][1] > 100
 
 
-def test_board_rotate_turns_points_raw_and_center_about_pivot():
+def test_board_rotate_turns_points_about_pivot():
     b = Board()
-    b.shapes.append({"kind": "line", "pts": [(100.0, 0.0), (200.0, 0.0)], "raw": [(100.0, 0.0, 1.0)], "id": 1,
-                     "locked": False})
+    b.shapes.append({"kind": "line", "pts": [(100.0, 0.0), (200.0, 0.0)], "id": 1})
     b.rotate(1, 90, (0.0, 0.0))
     (x0, y0), (x1, y1) = b.shapes[0]["pts"]
     assert (x0, y0, x1, y1) == pytest.approx((0, 100, 0, 200), abs=1e-9)
-    assert b.shapes[0]["raw"][0] == pytest.approx((0, 100, 1.0), abs=1e-9)
     assert rotate_points([(1.0, 0.0)], 180, (0.0, 0.0))[0] == pytest.approx((-1, 0), abs=1e-9)
 
 

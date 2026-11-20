@@ -35,7 +35,8 @@ def distance_to_shape(pos, shape):
     return min(_segment_distance(pos, a, b) for a, b in zip(pts, pts[1:]))
 
 
-def _bbox(s):
+def bbox(s):
+    """Khung bao (x0, y0, x1, y1)."""
     if s["kind"] == "circle":
         (cx, cy), r = s["center"], s["radius"]
         return cx - r, cy - r, cx + r, cy + r

@@ -6,7 +6,7 @@ shape_name xét với dung sai rất nhỏ trên hình đã nắn hoặc hình d
 """
 import math
 
-from airgeo.geometry.measure import polygon_metrics
+from airgeo.geometry.measure import centroid, polygon_metrics
 
 SIDE_TOL, DEG_TOL = 0.08, 8.0           # nắn: cạnh lệch <= 8%, góc lệch 90° <= 8° (cùng ngưỡng hít thẳng trục)
 NAME_SIDE_TOL, NAME_DEG_TOL = 1e-4, 0.5       # hình đã nắn / dựng từ số nhập là chính xác; số hiện 2 chữ số lẻ
@@ -38,7 +38,7 @@ def _square(pts):
     if not _close(w, h, SIDE_TOL):
         return pts
     s, (ux, uy), (vx, vy) = (w + h) / 4, _unit(pts[0], pts[1]), _unit(pts[1], pts[2])
-    cx, cy = sum(p[0] for p in pts) / 4, sum(p[1] for p in pts) / 4
+    cx, cy = centroid(pts)
     return [(cx + a * s * ux + b * s * vx, cy + a * s * uy + b * s * vy) for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
 
 

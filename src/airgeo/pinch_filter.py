@@ -127,7 +127,7 @@ class PinchFilter:
         self.flt = self.filters[name]
         self.flt.reset()
 
-    def csv_row(self, hand, t, res: FrameResult, smart):
+    def csv_row(self, hand, t, res: FrameResult):
         """Một dòng CSV cho frame này. Tọa độ thô luôn là landmark 4 và 8 (chưa lọc)."""
         def fmt(v):
             return None if v is None else f"{v:.2f}"
@@ -136,4 +136,4 @@ class PinchFilter:
         fpt = res.fpt or (None, None)
         return dict(t=f"{t:.6f}", x8_raw=fmt(p8[0]), y8_raw=fmt(p8[1]), x4_raw=fmt(p4[0]), y4_raw=fmt(p4[1]),
                     pinch=int(res.pinched), filter_name=self.flt.name,
-                    x_filt=fmt(fpt[0]), y_filt=fmt(fpt[1]), mode="smart" if smart else "free")
+                    x_filt=fmt(fpt[0]), y_filt=fmt(fpt[1]), mode="smart")

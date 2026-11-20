@@ -1,6 +1,8 @@
 """Xoay hình: quanh tâm, hít về trục ngang / dọc khi một cạnh lệch ít (vẽ tay hay bị nghiêng vài độ)."""
 import math
 
+from airgeo.geometry.measure import centroid
+
 SNAP_KINDS = ("line", "triangle", "rect")
 SNAP_DEG = 8.0      # cạnh lệch trục <= bấy nhiêu độ thì hít thẳng (cả lúc vẽ lẫn lúc xoay)
 
@@ -10,17 +12,16 @@ def edge_angle(a, b):
 
 
 def rotate_points(pts, deg, about):
-    """Xoay các điểm (x, y, ...) quanh about; phần sau (vd. thời gian t của nét gốc) giữ nguyên."""
+    """Xoay các điểm (x, y) quanh about."""
     c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
     ox, oy = about
-    return [(ox + (p[0] - ox) * c - (p[1] - oy) * s, oy + (p[0] - ox) * s + (p[1] - oy) * c, *p[2:]) for p in pts]
+    return [(ox + (p[0] - ox) * c - (p[1] - oy) * s, oy + (p[0] - ox) * s + (p[1] - oy) * c) for p in pts]
 
 
 def center(shape):
     if shape["kind"] == "circle":
         return shape["center"]
-    pts = shape["pts"]
-    return sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+    return centroid(shape["pts"])
 
 
 def snap_delta(shape, tol):
@@ -34,11 +35,8 @@ def snap_delta(shape, tol):
 
 
 def straighten(shape, tol=SNAP_DEG):
-    """Hình nhận dạng được mà lệch trục <= tol độ thì xoay cho thẳng. Xoay cả nét gốc raw (nếu có) cho khớp hình."""
+    """Hình nhận dạng được mà lệch trục <= tol độ thì xoay cho thẳng. """
     d = snap_delta(shape, tol)
     if d:
-        c = center(shape)
-        shape["pts"] = rotate_points(shape["pts"], d, c)
-        if "raw" in shape:
-            shape["raw"] = rotate_points(shape["raw"], d, c)
+        shape["pts"] = rotate_points(shape["pts"], d, center(shape))
     return shape

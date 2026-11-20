@@ -21,12 +21,12 @@ def test_press_on_shape_selects_and_empty_deselects(stroke, press):
     assert sel.selected is None
 
 
-def test_drag_moves_shape_and_its_raw_in_one_undo_step(stroke):
+def test_drag_moves_shape_in_one_undo_step(stroke):
     c = _ctl_with_line(stroke)
     before = list(c.board.shapes[0]["pts"])
     stroke(c, [(200, 300), (205, 300), (250, 350), (260, 350)])   # quá 10 px -> kéo
     moved = c.board.shapes[0]
-    assert moved["pts"][0] == (160, 350) and moved["raw"][0][:2] == (160, 350)
+    assert moved["pts"][0] == (160, 350)
     c.do("undo")
     assert c.board.shapes[0]["pts"] == before
 

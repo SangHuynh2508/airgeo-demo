@@ -39,12 +39,12 @@ def test_select_filter_switches():
 def test_csv_row_keeps_raw_landmarks_and_mode(make_hand):
     pf = _pf()
     hand = make_hand(100, 200, ratio=0.1)                   # p4 = (100, 205), p8 = (100, 195)
-    row = pf.csv_row(hand, 1.5, pf.step(hand, 1.5), smart=False)
+    row = pf.csv_row(hand, 1.5, pf.step(hand, 1.5))
     assert row["t"] == "1.500000"
     assert row["x8_raw"] == "100.00" and row["y8_raw"] == "195.00" and row["y4_raw"] == "205.00"
     assert row["x_filt"] == "100.00" and row["y_filt"] == "200.00"
-    assert row["pinch"] == 1 and row["filter_name"] == "none" and row["mode"] == "free"
-    empty = pf.csv_row(None, 1.6, pf.step(None, 1.6), smart=True)
+    assert row["pinch"] == 1 and row["filter_name"] == "none" and row["mode"] == "smart"
+    empty = pf.csv_row(None, 1.6, pf.step(None, 1.6))
     assert empty["x8_raw"] is None and empty["x_filt"] is None and empty["mode"] == "smart"
 
 

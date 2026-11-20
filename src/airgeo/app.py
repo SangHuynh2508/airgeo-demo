@@ -94,7 +94,7 @@ def run(config: Config):
             # tư thế tay giữ yên -> đổi công cụ / Undo / menu tròn (Controller bỏ qua khi đang chụm, bảng nhập mở)
             if fitts is None:
                 ctl.on_pose(classify(hand["pts"]) if hand else None, hand["pts"][9] if hand else (0, 0), t)
-            logger.log(**pf.csv_row(hand, t, res, True))    # cột mode: nhận dạng luôn bật
+            logger.log(**pf.csv_row(hand, t, res))
 
             # ---- Vẽ ----
             dt, t_prev = t - t_prev, t
