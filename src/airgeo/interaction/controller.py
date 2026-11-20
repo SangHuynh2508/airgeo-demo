@@ -16,7 +16,8 @@ from airgeo.tools.select import SelectTool
 KEY_ACTIONS = {ord("u"): "undo", ord("c"): "clear", ord("n"): "unit", ord("t"): "bar",
                ord("v"): "draw", ord("g"): "select", ord("x"): "erase"}
 TOOL_LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa"}
-FIT_MARGIN = 110      # lề quanh hình đã phóng to: chỗ cho ô nhãn cạnh, số đo góc, tay cầm xoay
+FIT_MARGIN = 110      # lề trái / phải quanh hình đã phóng to: chỗ cho ô nhãn cạnh, số đo góc, tay cầm xoay
+FIT_TOP, FIT_BOTTOM = 90, 180   # lề dưới rộng hơn: nhãn cạnh đáy không sát mép dưới (tay thấp thì mất tay)
 
 
 class Controller:
@@ -27,7 +28,8 @@ class Controller:
         self.width, self.height = width, height
         self.tools = {"draw": DrawTool(), "select": SelectTool(config, width, height), "erase": EraseTool(config)}
         self.tool = "draw"
-        self.menu = RadialMenu(width, height, config.toolbar_height, config.confirm_window)
+        self.menu = RadialMenu(width, height, config.toolbar_height, config.confirm_window,
+                               right=self.tools["select"].menu_x - 210)     # không đè cột Tính + bảng công thức
         self.poses = PoseTrigger()  # tư thế tay giữ yên -> lệnh (xem gesture/pose.py)
         self._fist_ok = True        # False sau mỗi lần nhả: tay thả lỏng khép hờ sau khi vẽ không được là Undo
         self._owner = None          # ai nhận lần chụm hiện tại: "panel" | "toolbar" | "tool"
@@ -40,9 +42,9 @@ class Controller:
 
     @property
     def fit_box(self):
-        """Vùng đặt hình sau khi vẽ / nhập số đo: vùng vẽ trừ cột Tính bên phải, chừa lề FIT_MARGIN cho nhãn."""
+        """Vùng đặt hình sau khi vẽ / nhập số đo: vùng vẽ trừ cột Tính bên phải, chừa lề cho nhãn."""
         m = FIT_MARGIN
-        return m, self.bounds[1] + m, self.tools["select"].menu_x - m, self.height - m
+        return m, self.bounds[1] + FIT_TOP, self.tools["select"].menu_x - m, self.height - FIT_BOTTOM
 
     def dispatch(self, ev):
         if ev.kind == "down":
@@ -66,6 +68,10 @@ class Controller:
                 action = self.menu.press(ev.pos, ev.t)
                 if action:
                     self.do(action)
+                if action == "unit":        # menu đã đóng: không còn chỗ nào hiện đơn vị mới
+                    self.notify(f"Đơn vị: {self.board.unit}", ev.t)
+                elif action == "clear":
+                    self.notify("Đã xóa hết", ev.t)
         elif owner == "toolbar":
             if ev.kind == "down":
                 action = self.toolbar.press(ev.pos, ev.t)

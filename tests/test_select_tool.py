@@ -306,9 +306,42 @@ def test_rotation_handle_keeps_off_vertices_where_angle_values_sit():
         assert all(math.dist((hx, hy), p) > 60 for p in shape["pts"])
 
 
+def test_rotation_handle_tries_every_distance_top_right_first_and_avoids_angle_chips():
+    from airgeo.tools.select import SelectTool
+    tool = SelectTool(Config(), 1280, 720)
+    tri = {"kind": "triangle", "pts": [(370.0, 610.0), (750.0, 610.0), (750.0, 110.0)]}   # C ở góc trên phải
+    hx, hy = tool.handle(tri)
+    assert hx > 750 and hy < 110                                 # vẫn góc trên phải, ra xa hơn (không nhảy sang trái)
+    tool.avoid = [(hx - 60, hy - 15, hx + 60, hy + 15)]          # viên "góc C = ..." nằm đúng chỗ đó
+    hx2, hy2 = tool.handle(tri)
+    assert (hx2, hy2) != (hx, hy) and not (hx - 80 <= hx2 <= hx + 80 and hy - 35 <= hy2 <= hy + 35)
+
+
+def test_rotation_handle_grabs_within_35_px(press):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append(dict(RECT))
+    c.do("select")
+    press(c, (600, 450))
+    sel = c.tools["select"]
+    h = sel.handle(c.board.get(1))
+    c.dispatch(E("down", (h[0] + 33, h[1]), 1.0))
+    assert sel.rotation is not None
+
+
 def test_rotation_handle_stays_below_visible_toolbar():
     c = Controller(Config(), 1280, 720)
     c.do("bar")                                                        # hiện dải nút
     tri = {"kind": "triangle", "pts": [(310.0, 300.0), (810.0, 300.0), (310.0, 90.0)]}   # góc trên phải trống
     hx, hy = c.tools["select"].handle(tri)
     assert hy - 14 > c.toolbar.height
+
+
+def test_rotation_handle_never_sits_on_an_angle_chip_under_visible_toolbar():
+    c = Controller(Config(), 1280, 720)
+    c.do("bar")
+    sel = c.tools["select"]
+    tri = {"kind": "triangle", "pts": [(390.0, 540.0), (730.0, 540.0), (730.0, 90.0)]}   # C sát dải nút
+    sel.avoid = [(257, 553, 383, 593), (709, 563, 835, 601), (746, 73, 886, 107)]     # viên góc A, B, C
+    hx, hy = sel.handle(tri)
+    assert not any(x0 - 20 <= hx <= x1 + 20 and y0 - 20 <= hy <= y1 + 20 for x0, y0, x1, y1 in sel.avoid)
+    assert hy - 20 > c.toolbar.height

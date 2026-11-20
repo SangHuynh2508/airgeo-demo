@@ -21,6 +21,7 @@ MEASURES = {"line": [], "triangle": ["angles", "perimeter", "area"],
             "rect": ["angles", "perimeter", "area"], "circle": ["perimeter", "area"]}
 MENU_W, MENU_H, MENU_GAP = 150, 44, 8
 HANDLE_OFFSET = 32
+HANDLE_R, HANDLE_HIT = 20, 35     # bán kính vẽ / vùng bấm tay cầm xoay (px)
 TRASH_R = 136                     # vùng xóa: 1/4 hình tròn bán kính chừng này px ở góc trên trái
 
 
@@ -33,6 +34,7 @@ class SelectTool:
         self.menu_y = config.toolbar_height + 40          # chừa chỗ chữ "Tinh:"
         self.top = 0                # mép trên vùng vẽ: 0 khi dải nút ẩn (mặc định), Controller cập nhật khi bật / tắt
         self.trash = (0, 0)         # tâm vùng xóa (góc trên trái)
+        self.avoid = []             # khung viên số đo góc vừa vẽ (render ghi mỗi frame): tay cầm xoay không đè lên
         self.rotation = None        # đang xoay: {"pivot", "a0", "pts0", "kind", "applied", "pos"}
         self.selected = None        # id hình đang chọn
         self.show = set()           # số đo đang hiện của hình đang chọn
@@ -50,19 +52,23 @@ class SelectTool:
                 for i, k in enumerate(MEASURES.get(shape["kind"], []))]
 
     def handle(self, shape):
-        """Vị trí tay cầm xoay: góc khung bao gần nhất còn nằm trong vùng vẽ (ưu tiên trên phải, xa nhãn cạnh và
-        cột Tính); hình tròn không xoay."""
+        """Vị trí tay cầm xoay ở 1 góc khung bao, trong vùng vẽ, ngoài cột Tính. Ưu tiên trên phải (thử hết các khoảng
+        cách rồi mới sang góc khác), tránh đỉnh (tên đỉnh) và viên số đo góc vừa vẽ (self.avoid); hình tròn không xoay."""
         if shape is None or shape["kind"] == "circle":
             return None
         xs, ys = [p[0] for p in shape["pts"]], [p[1] for p in shape["pts"]]
-        for d in (HANDLE_OFFSET, HANDLE_OFFSET + 28):    # góc nào cũng có đỉnh (chữ nhật) thì ra xa hơn
-            corners = [(max(xs) + d, min(ys) - d), (min(xs) - d, min(ys) - d), (max(xs) + d, max(ys) + d),
-                       (min(xs) - d, max(ys) + d)]
-            ok = [c for c in corners if c[1] >= self.top + 40 and 20 <= c[0] <= self.menu_x - 20]
-            free = [c for c in ok if all(math.dist(c, p) > 60 for p in shape["pts"])]   # chừa chỗ tên đỉnh / số góc
-            if free:
-                return free[0]
-        return (ok or corners[2:])[0]
+        r = HANDLE_R + 4
+        first = None
+        for right, up in ((True, True), (False, True), (True, False), (False, False)):
+            for d in (HANDLE_OFFSET, HANDLE_OFFSET + 28):    # sát đỉnh thì ra xa hơn
+                # kẹp vào vùng vẽ (dưới dải nút, ngoài cột Tính) thay vì bỏ góc đó
+                c = (min(max(max(xs) + d if right else min(xs) - d, 20), self.menu_x - 20),
+                     max(min(ys) - d if up else max(ys) + d, self.top + 40))
+                first = first or c
+                if all(math.dist(c, p) > 60 for p in shape["pts"]) and not any(
+                        x0 - r <= c[0] <= x1 + r and y0 - r <= c[1] <= y1 + r for x0, y0, x1, y1 in self.avoid):
+                    return c
+        return first
 
     def _label_at(self, board, pos):
         shape = board.get(self.selected) if self.selected else None
@@ -89,7 +95,7 @@ class SelectTool:
                 self._grab = None
                 return
             h = self.handle(board.get(self.selected)) if self.selected else None
-            if h and math.dist(ev.pos, h) <= self.label_radius:
+            if h and math.dist(ev.pos, h) <= HANDLE_HIT:
                 shape = board.get(self.selected)
                 p = center(shape)
                 self.rotation = {"pivot": p, "a0": math.atan2(ev.pos[1] - p[1], ev.pos[0] - p[0]), "pos": ev.pos,

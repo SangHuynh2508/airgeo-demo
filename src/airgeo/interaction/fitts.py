@@ -19,13 +19,14 @@ from datetime import datetime
 N = 11
 BLOCKS = [(300, 50), (300, 90), (500, 50), (500, 90)]      # (D, W) px
 HEADER = 90                                                # px dải tiêu đề phía trên
+FOOTER = 160                                               # px dải dưới không đặt mục tiêu: tay thấp thì mất tay
 
 
 class FittsTask:
     def __init__(self, width, height, blocks=BLOCKS, n=N):
-        self.center = (width / 2, (height + HEADER) / 2)       # chừa dải tiêu đề phía trên
+        self.center = (width / 2, (height + HEADER - FOOTER) / 2)       # giữa dải tiêu đề và dải dưới
         # khung hình thấp: thu nhỏ cả D lẫn W cho vòng mục tiêu lọt khung (số ghi ra là cỡ thật đã dùng)
-        k = min(1.0, (min(width, height - HEADER) / 2 - 20) / max(D / 2 + W / 2 for D, W in blocks))
+        k = min(1.0, (min(width, height - HEADER - FOOTER) / 2 - 20) / max(D / 2 + W / 2 for D, W in blocks))
         self.blocks, self.n = [(D * k, W * k) for D, W in blocks], n
         self.order = [(j * ((n + 1) // 2)) % n for j in range(n + 1)]
         self.block = self.step = 0          # khối hiện tại / lần bấm thứ mấy trong khối (0 = lần bắt đầu)

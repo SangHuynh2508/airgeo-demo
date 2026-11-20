@@ -5,6 +5,7 @@ import numpy as np
 
 from airgeo.ui.render import _label_chip, text
 from airgeo.ui.text import text_size
+from airgeo.ui.toolbar import CHIP_SIZE
 
 TOOL_NAMES = {"draw": "Ve", "select": "Chon", "erase": "Xoa"}
 GESTURE_NAMES = {"two_finger": "2 ngon", "pinch": "chum"}
@@ -57,12 +58,14 @@ LEGEND = ["3 ngón: Vẽ", "Xòe tay: Chọn  ·  giữ lâu: Menu", "Ngón tr�
 
 
 def draw_legend(img):
-    """Gợi ý tư thế tay (góc dưới trái; phím H ẩn / hiện)."""
+    """Gợi ý tư thế tay (góc dưới trái, ngay trên viên công cụ; phím H ẩn / hiện)."""
     _, h = text_size(LEGEND, 18)
-    _label_chip(img, LEGEND, (20, img.shape[0] - h - 14), 18)
+    lift = text_size(["Vẽ"], CHIP_SIZE, True)[1] + 30          # chừa viên "Vẽ · cm" (ui/toolbar.py)
+    _label_chip(img, LEGEND, (20, img.shape[0] - h - 14 - lift), 18)
 
 
-def draw_status(img, msg, top=60):
-    """Thông báo ngắn: chữ lớn giữa màn hình, ngay dưới dải trạng thái (xa bảng gợi ý và cột Tính)."""
+def draw_status(img, msg):
+    """Thông báo ngắn: chữ lớn giữa dưới (y ≈ H − 70). Dải dưới không phải chỗ bấm (hình đặt chừa lề dưới 180 px)
+    nên thông báo không che đỉnh hình, cột Tính hay vùng xóa."""
     w, _ = text_size([msg], 28, True)
-    _label_chip(img, [msg], ((img.shape[1] - w) // 2, top + 20), 28, bold=True)
+    _label_chip(img, [msg], ((img.shape[1] - w) // 2, img.shape[0] - 70), 28, bold=True)

@@ -9,7 +9,7 @@ Bảng có đủ các ô của hình (tam giác AB BC CA, chữ nhật dai rong,
 hình 1 lần. Chưa có tỉ lệ: ô đầu tiên có số làm chuẩn, ô trống giữ tỉ lệ cạnh như đang vẽ. Dựng xong hình được
 phóng to ra giữa vùng vẽ (construct.fit) – tỉ lệ px/cm nhân theo nên số đo giữ đúng số đã nhập.
 """
-from airgeo.geometry.construct import build, current_lengths, field_names, fit
+from airgeo.geometry.construct import FIELD_LABELS, build, current_lengths, field_names, fit
 from airgeo.geometry.units import fmt_length, to_px, to_units, trim
 from airgeo.gesture.digits import DigitReader
 
@@ -34,9 +34,11 @@ class EditPanel:
         pw = min(760, self.W - 2 * g)
         bh = 56 if self.H >= 600 else 44
         s = 2 * PAD_SLOP
-        pad_h = max(110, min(220, self.H - 2 * g - (40 + 60 + bh + 34 + 5 * g + s)))
+        # bảng sát mép trên, ô viết vừa đủ để hàng nút OK / Hủy không thấp hơn 0.6 H (≈ y 430 ở khung 720):
+        # với nút thấp thì cổ tay ra khỏi mép dưới khung hình, MediaPipe mất tay
+        pad_h = max(110, min(220, int(0.6 * self.H) - g - (100 + bh + 3 * g + s)))
         ph = 40 + 60 + pad_h + bh + 34 + 5 * g + s
-        x0, y0 = (self.W - pw) // 2, max(g, (self.H - ph) // 2)
+        x0, y0 = (self.W - pw) // 2, g
         ix, iw = x0 + g, pw - 2 * g
         self.rect = (x0, y0, x0 + pw, y0 + ph)
         self.title_pos = (ix, y0 + g)
@@ -134,7 +136,7 @@ class EditPanel:
             s = self.values[f]
             if s == "":
                 if scale is not None:
-                    self.error = f"Chưa nhập {f}"
+                    self.error = f"Chưa nhập {FIELD_LABELS.get(f, f)}"
                     return False
                 continue                # chưa có tỉ lệ: ô trống giữ tỉ lệ cạnh hiện tại
             try:
@@ -142,7 +144,7 @@ class EditPanel:
             except ValueError:
                 v = 0.0
             if v <= 0:
-                self.error = f"{f} không hợp lệ"
+                self.error = f"Số đo {FIELD_LABELS.get(f, f)} không hợp lệ"
                 return False
             entered[f] = v
         if not entered:

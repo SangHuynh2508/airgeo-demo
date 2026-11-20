@@ -6,6 +6,7 @@ Tam giác dựng từ 3 cạnh bằng định lý cos; đỉnh C giữ cùng ph�
 import math
 
 FIELDS = {"line": ["d"], "triangle": ["AB", "BC", "CA"], "rect": ["dai", "rong"], "circle": ["r"]}
+FIELD_LABELS = {"dai": "dài", "rong": "rộng"}     # chữ có dấu hiện cho học sinh (mã trường không dấu)
 
 
 def field_names(kind):

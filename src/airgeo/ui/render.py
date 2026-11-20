@@ -8,14 +8,14 @@ import math
 import cv2
 import numpy as np
 
-from airgeo.geometry.construct import current_lengths, label_anchors
+from airgeo.geometry.construct import FIELD_LABELS, current_lengths, label_anchors
 from airgeo.geometry.formulas import formula, triangle_height
 from airgeo.geometry.measure import measure
 from airgeo.geometry.rotate import edge_angle
 from airgeo.geometry.shapes import is_right, shape_name
 from airgeo.geometry.units import fmt_length, round_sum
 from airgeo.gesture.pinch import draw_point
-from airgeo.tools.select import MENU_W
+from airgeo.tools.select import HANDLE_R, MENU_W
 from airgeo.tracking.hand_tracker import CONNECTIONS
 from airgeo.ui.text import put_text, text_size
 
@@ -75,7 +75,6 @@ def draw_shape(img, s, color=None, thickness=4):
 
 
 CHIP_W, CHIP_H = 56, 32               # nút nhãn cạnh (AB, dài, r...) quanh label_anchors; rộng thêm theo chữ
-FIELD_LABELS = {"dai": "dài", "rong": "rộng"}
 
 
 def chip_labels(s, scale, unit):
@@ -95,25 +94,28 @@ def _value(img, s, center):
     _label_chip(img, [s], (int(center[0] - w / 2), int(center[1] - h / 2)), VALUE_SIZE)
 
 
-def angle_chip_center(v, b, hw, hh, W, H):
+def angle_chip_center(v, b, hw, hh, W, H, top=0):
     """Tâm viên số đo góc (nửa khung hw x hh) ở đỉnh v, b = phân giác trong (đơn vị): trên phân giác ngoài, đủ xa để
-    cả viên nằm ngoài đỉnh, giữ trong khung hình. Đỉnh sát mép (bị kẹp ngược về đè đỉnh) thì đặt ngay trên / dưới đỉnh."""
+    cả viên nằm ngoài đỉnh, giữ trong vùng vẽ (top = mép trên: không chui dưới dải nút). Đỉnh sát mép (bị kẹp ngược
+    về đè đỉnh) thì đặt ngay trên / dưới đỉnh phía ngoài hình, không được thì ngang đỉnh phía ngoài, cuối cùng mới
+    phía trong."""
     bx, by = b
     reach = min(hw / max(abs(bx), 1e-3), hh / max(abs(by), 1e-3)) + LEADER
     x = min(max(v[0] - bx * reach, hw + 4), W - hw - 4)
-    y = min(max(v[1] - by * reach, hh + 4), H - hh - 4)
+    y = min(max(v[1] - by * reach, top + hh + 4), H - hh - 4)
     if abs(x - v[0]) < hw + 6 and abs(y - v[1]) < hh + 6:
-        for s in ((1, -1) if -by > 0.1 else (-1, 1)):          # ưu tiên phía ngoài hình theo chiều dọc
-            y = v[1] + s * (hh + LEADER)
-            if hh + 4 <= y <= H - hh - 4:
+        out = 1 if -by > 0.1 else -1                            # phía ngoài hình theo chiều dọc
+        side = (v[0] + (hw + 16) * (1 if bx <= 0 else -1), min(max(v[1], top + hh + 4), H - hh - 4))
+        for x, y in ((x, v[1] + out * (hh + LEADER)), side, (x, v[1] - out * (hh + LEADER))):
+            if hw + 4 <= x <= W - hw - 4 and top + hh + 4 <= y <= H - hh - 4:
                 break
     return x, y
 
 
-def draw_angle(img, v, p, n, angle, name=None):
+def draw_angle(img, v, p, n, angle, name=None, top=0):
     """Ký hiệu góc tại đỉnh v (2 cạnh tới p, n) như SGK: góc vuông = ô vuông nhỏ, góc khác = cung tròn nhỏ.
     Có name: viên "góc A = 60°" đặt ngoài hình theo phân giác ngoài, đường chỉ mảnh từ viên tới ký hiệu
-    (học sinh đọc được số mà số không đè lên hình)."""
+    (học sinh đọc được số mà số không đè lên hình); trả về khung viên (x0, y0, x1, y1), không có viên thì None."""
     d1, d2 = math.dist(v, p) or 1.0, math.dist(v, n) or 1.0
     u1 = ((p[0] - v[0]) / d1, (p[1] - v[1]) / d1)
     u2 = ((n[0] - v[0]) / d2, (n[1] - v[1]) / d2)
@@ -138,22 +140,25 @@ def draw_angle(img, v, p, n, angle, name=None):
     label = f"góc {name} = {angle:.0f}°"
     w, h = text_size([label], VALUE_SIZE)
     hw, hh = w / 2 + 10, h / 2 + 5                # nửa khung viên (cả nền tối)
-    c = angle_chip_center(v, (bx, by), hw, hh, img.shape[1], img.shape[0])
+    c = angle_chip_center(v, (bx, by), hw, hh, img.shape[1], img.shape[0], top)
     edge = min(hw / max(abs(c[0] - v[0]), 1e-3), hh / max(abs(c[1] - v[1]), 1e-3), 1.0)
     start = (c[0] + (v[0] - c[0]) * edge, c[1] + (v[1] - c[1]) * edge)      # mép viên phía đỉnh
     cv2.line(img, ip(start), ip((v[0] + bx * mark, v[1] + by * mark)), ANGLE_COLOR, 1, cv2.LINE_AA)
     _value(img, label, c)
+    return c[0] - hw, c[1] - hh, c[0] + hw, c[1] + hh
 
 
-def draw_angles(img, s):
-    """Tam giác: ký hiệu + viên số đo từng góc. Hình chữ nhật: 4 góc vuông nên chỉ ô vuông, không ghi số."""
+def draw_angles(img, s, top=0):
+    """Tam giác: ký hiệu + viên số đo từng góc. Hình chữ nhật: 4 góc vuông nên chỉ ô vuông, không ghi số.
+    Trả về khung các viên số đo đã vẽ."""
     if s["kind"] not in ("triangle", "rect"):
-        return
+        return []
     pts, angles = s["pts"], measure(s)["angles"]
     angles = round_sum(angles, 180 * (len(pts) - 2))     # số hiện cộng lại đúng 180° (không 179 / 181)
     names = "ABC" if s["kind"] == "triangle" else [None] * 4
-    for i in range(len(pts)):
-        draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % len(pts)], angles[i], names[i])
+    chips = [draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % len(pts)], angles[i], names[i], top)
+             for i in range(len(pts))]
+    return [r for r in chips if r]
 
 
 DIM = 0.45     # hình không được chọn: còn thấy để tránh vẽ đè, nhưng lùi lại sau hình đang thao tác
@@ -239,11 +244,11 @@ def draw_rotation_handle(img, shape, tool):
         xs, ys = [p[0] for p in shape["pts"]], [p[1] for p in shape["pts"]]
         corner = (min(max(h[0], min(xs)), max(xs)), min(max(h[1], min(ys)), max(ys)))
         cv2.line(img, ip(corner), ip(h), SELECT_COLOR, 1, cv2.LINE_AA)
-    cv2.circle(img, ip(h), 14, (40, 40, 40), -1, cv2.LINE_AA)
-    cv2.circle(img, ip(h), 14, SELECT_COLOR, 2, cv2.LINE_AA)
-    cv2.ellipse(img, ip(h), (7, 7), 0, -60, 210, SELECT_COLOR, 2, cv2.LINE_AA)      # mũi tên vòng
-    tip = (h[0] + 7 * math.cos(math.radians(-60)), h[1] + 7 * math.sin(math.radians(-60)))
-    cv2.circle(img, ip(tip), 3, SELECT_COLOR, -1, cv2.LINE_AA)
+    cv2.circle(img, ip(h), HANDLE_R, (40, 40, 40), -1, cv2.LINE_AA)
+    cv2.circle(img, ip(h), HANDLE_R, SELECT_COLOR, 2, cv2.LINE_AA)
+    cv2.ellipse(img, ip(h), (10, 10), 0, -60, 210, SELECT_COLOR, 2, cv2.LINE_AA)      # mũi tên vòng
+    tip = (h[0] + 10 * math.cos(math.radians(-60)), h[1] + 10 * math.sin(math.radians(-60)))
+    cv2.circle(img, ip(tip), 4, SELECT_COLOR, -1, cv2.LINE_AA)
 
 
 def draw_trash(img):
@@ -255,8 +260,8 @@ def draw_trash(img):
     roi[:] = cv2.addWeighted(roi, 0.25, disk, 0.75, 0)
     edge = (255, 255, 255)
     cv2.circle(img, (0, 0), TRASH_R, ERASE_COLOR, 3, cv2.LINE_AA)
-    # biểu tượng thùng rác (nắp + quai, thân hình thang, 3 vạch), cỡ 0.8, dưới viên "Vẽ · cm"
-    ox, oy, k = 52, 82, 0.8
+    # biểu tượng thùng rác (nắp + quai, thân hình thang, 3 vạch), cỡ 0.8, giữa 1/4 hình tròn
+    ox, oy, k = 54, 56, 0.8
 
     def q(dx, dy):
         return int(round(ox + dx * k)), int(round(oy + dy * k))
@@ -279,8 +284,8 @@ def draw_tool_overlay(img, ctl):
         angles = "angles" in tool.show
         draw_selection(img, shape, ERASE_COLOR if tool.blocked else SELECT_COLOR, ctl.board.scale, ctl.board.unit,
                        letters=not (angles and shape["kind"] == "triangle"))
-        if angles:                                # chu vi / diện tích nằm trong bảng công thức
-            draw_angles(img, shape)
+        # chu vi / diện tích nằm trong bảng công thức; khung viên góc giữ lại để tay cầm xoay không đè lên
+        tool.avoid = draw_angles(img, shape, ctl.bounds[1]) if angles else []
         name = shape_name(shape)                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
         w, _ = text_size([name], 22, True)
         _label_chip(img, [name], (tool.menu_x + MENU_W - w - 10, tool.menu_y - 40), 22, bold=True)
@@ -386,8 +391,9 @@ def draw_pose_progress(img, pos, progress):
     c = ip(pos)
     cv2.circle(img, c, 30, (70, 70, 70), 6, cv2.LINE_AA)
     cv2.ellipse(img, c, (30, 30), -90, 0, 360 * frac, BUTTON_HOVER, 6, cv2.LINE_AA)
-    _, h = text_size([POSE_LABELS[action]], 22, True)
-    _label_chip(img, [POSE_LABELS[action]], (c[0] + 46, c[1] - h // 2), 22, bold=True)
+    w, h = text_size([POSE_LABELS[action]], 22, True)
+    x = c[0] + 46 if c[0] + 46 + w + 10 <= img.shape[1] else c[0] - 46 - w     # gần mép phải: lật sang trái
+    _label_chip(img, [POSE_LABELS[action]], (x, c[1] - h // 2), 22, bold=True)
 
 
 def draw_radial_menu(img, menu, board, t, cursor, bar_on=False):
@@ -405,7 +411,7 @@ def draw_radial_menu(img, menu, board, t, cursor, bar_on=False):
         disk = roi.copy()
         fill = (0, 0, 170) if a == "clear" and armed else (0, 0, 0)
         cv2.circle(disk, (cx - x0, cy - y0), ITEM_R, fill, -1, cv2.LINE_AA)
-        roi[:] = cv2.addWeighted(roi, 0.3, disk, 0.7, 0)
+        roi[:] = cv2.addWeighted(roi, 0.1, disk, 0.9, 0)      # phủ ~90%: chữ đọc được cả trên nền rối
         cv2.circle(img, (cx, cy), ITEM_R, BUTTON_HOVER if a == hover else BUTTON_EDGE, 3 if a == hover else 1,
                    cv2.LINE_AA)
         lh = round(18 * 1.3)                     # canh giữa từng dòng

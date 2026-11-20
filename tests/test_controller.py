@@ -215,7 +215,7 @@ def test_scribble_is_deleted_with_message_and_shape_name_is_announced(stroke):
     stroke(c, [(300 + 100 * math.cos(math.pi * i / 30), 300 - 100 * math.sin(math.pi * i / 30)) for i in range(31)])
     assert c.board.shapes == [] and c.message == "Không nhận ra hình – vẽ lại" and c.tool == "draw"
     stroke(c, [(100 + 10 * i, 500) for i in range(21)], t0=2.0)
-    assert c.message == "Đoạn thẳng" and c.tool == "select"
+    assert c.message != "Đoạn thẳng" and c.tool == "select"     # tên hình đã ở tiêu đề cột Tính, không báo lại
 
 
 def test_smart_is_gone():
@@ -257,7 +257,36 @@ def test_drawn_shape_is_centered_and_enlarged(stroke):
     x0, y0, x1, y1 = c.fit_box
     xs, ys = [p[0] for p in c.board.shapes[0]["pts"]], [p[1] for p in c.board.shapes[0]["pts"]]
     assert max(ys) - min(ys) == pytest.approx(y1 - y0) and (min(xs) + max(xs)) / 2 == pytest.approx((x0 + x1) / 2)
-    assert y1 - y0 >= 0.65 * 720
+    assert y1 - y0 >= 0.6 * 720
+
+
+def test_fit_box_leaves_more_room_below_than_above():
+    c = _ctl()
+    assert c.fit_box == (110, 90, c.tools["select"].menu_x - 110, 720 - 180)   # nhãn cạnh đáy xa mép dưới
+    c.key(ord("t"), 0)
+    assert c.fit_box[1] == c.toolbar.height + 90
+
+
+def test_radial_menu_stays_high_and_left_of_measure_column():
+    c = _ctl()
+    c.menu.open((1250, 700), 0.0)
+    cx, cy = c.menu.center
+    assert cy <= 720 - 260 and cx < c.tools["select"].menu_x - 170 + 1e-9
+
+
+def test_menu_unit_and_clear_say_what_happened(stroke):
+    from airgeo.interaction.pointer import PointerEvent as E
+    c = _ctl()
+    stroke(c, LINE)
+    c.menu.open((640, 400), 1.0)
+    pos = dict(c.menu.positions())["unit"]
+    c.dispatch(E("down", pos, 1.1)); c.dispatch(E("up", pos, 1.2))
+    assert c.message == "Đơn vị: dm"
+    c.menu.open((640, 400), 2.0)
+    pos = dict(c.menu.positions())["clear"]
+    for t in (2.1, 2.5):
+        c.dispatch(E("down", pos, t)); c.dispatch(E("up", pos, t + 0.1))
+    assert c.board.shapes == [] and c.message == "Đã xóa hết"
 
 
 def test_undo_with_nothing_left_says_so():

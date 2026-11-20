@@ -162,6 +162,26 @@ def test_line_panel_has_one_field():
     assert p.fields == ["d"] and len(p.field_rects) >= 1
 
 
+def test_ok_row_sits_high_enough_to_reach():
+    _, p, _ = _setup()
+    assert max(r[3] for r in p.button_rects.values()) <= 432       # tay không phải hạ sát mép dưới khung hình
+
+
+def test_errors_use_readable_field_names():
+    board = Board()
+    board.shapes.append({"kind": "rect", "pts": [(100.0, 100.0), (400.0, 100.0), (400.0, 300.0), (100.0, 300.0)],
+                         "raw": [], "id": 1, "locked": False})
+    board.scale = 50.0
+    p = EditPanel(Config(), 1280, 720)
+    p.open(board.shapes[0], "dai", board)
+    p.values["dai"] = ""
+    p.submit(board, BOX)
+    assert p.error == "Chưa nhập dài"
+    p.values["dai"] = "0"
+    p.submit(board, BOX)
+    assert p.error == "Số đo dài không hợp lệ"
+
+
 @pytest.mark.parametrize("W,H", [(1280, 720), (640, 480)])
 def test_panel_fits_frame(W, H):
     _, p, _ = _setup(W=W, H=H)

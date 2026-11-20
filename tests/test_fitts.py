@@ -36,7 +36,7 @@ def test_first_click_not_measured_and_perfect_block():
 
 
 def test_misses_counted_and_blocks_advance():
-    task = FittsTask(1280, 720, blocks=[(300, 50), (500, 90)])
+    task = FittsTask(1920, 1080, blocks=[(300, 50), (500, 90)])      # khung lớn: giữ đúng cỡ D, W
     _run_block(task, off=lambda i: (40.0, 0.0) if i % 2 else (0.0, 0.0))     # lệch 40 > W/2 = 25: trượt
     assert not task.done and task.block == 1
     s = task.summary()[0]
@@ -76,6 +76,14 @@ def test_small_frame_shrinks_targets_to_fit():
         task.block = k
         W = task.blocks[k][1]
         assert all(W / 2 <= x <= 640 - W / 2 and W / 2 <= y <= 480 - W / 2 for x, y in task.targets())
+
+
+def test_targets_stay_above_the_bottom_strip():
+    task = FittsTask(1280, 720)
+    for k in range(len(task.blocks)):
+        task.block = k
+        W = task.blocks[k][1]
+        assert all(90 <= y - W / 2 and y + W / 2 <= 560 for _, y in task.targets())   # tay thấp thì mất tay
 
 
 def test_draw_highlights_the_target_to_press():

@@ -201,6 +201,7 @@ def test_button_has_dark_backing_and_vietnamese_label():
 
 def test_toolbar_only_paints_its_band_and_groups_tools_left():
     c = Controller(Config(), 1280, 720)
+    c.toolbar.visible = True
     frame = np.full((720, 1280, 3), 200, np.uint8)
     draw_toolbar(frame, c, 0.0, None)
     assert (frame[60:] == 200).all() and (frame[:60] != 200).any()
@@ -215,10 +216,11 @@ def test_toast_legend_progress_and_radial_menu_paint():
     c = Controller(Config(), 1280, 720)
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_status(frame, "Đã hoàn tác")
-    assert frame[60:140, 500:780].any()                      # thông báo giữa, dưới dải trạng thái
+    assert frame[720 - 80:720 - 20, 500:780].any()           # thông báo giữa dưới: không che đỉnh hình
+    assert not frame[:720 - 90].any()
     blank = np.zeros((720, 1280, 3), np.uint8)
     draw_legend(blank)
-    assert blank[600:715, 0:400].any() and not blank[:500].any()
+    assert blank[540:715, 0:400].any() and not blank[:500].any()
     ring = np.zeros((720, 1280, 3), np.uint8)
     draw_pose_progress(ring, (640, 400), ("draw", 0.5))
     assert ring[400 - 40:400 + 40, 640 - 40:640 + 40].any()
@@ -241,6 +243,17 @@ def test_rotation_handle_is_drawn_for_selected_rect():
     draw_tool_overlay(frame, c)
     hx, hy = sel.handle(c.board.get(1))
     assert frame[int(hy) - 3:int(hy) + 4, int(hx) - 3:int(hx) + 4].any()
+    assert frame[int(hy), int(hx) + 19].any()                    # bán kính vẽ 20 px (dễ thấy từ cuối lớp)
+
+
+def test_angle_chips_drawn_are_kept_for_the_handle_to_avoid():
+    from airgeo.ui.render import draw_tool_overlay
+    c, sel = _selected(TRI_345, {"angles"})
+    draw_tool_overlay(np.zeros((720, 1280, 3), np.uint8), c)
+    assert len(sel.avoid) == 3
+    sel.show = set()
+    draw_tool_overlay(np.zeros((720, 1280, 3), np.uint8), c)
+    assert sel.avoid == []
 
 
 def test_hidden_toolbar_draws_only_a_small_tool_chip():
@@ -249,10 +262,54 @@ def test_hidden_toolbar_draws_only_a_small_tool_chip():
     frame = np.full((720, 1280, 3), 200, np.uint8)
     draw_toolbar(frame, c, 0.0, None)
     assert (frame[30, 600] == 200).all()                        # giữa mép trên: không có dải tối
-    assert (frame[5:45, 10:120] < 100).any()                     # góc trên trái: viên "Vẽ · cm"
+    assert (frame[:200, :200] == 200).all()                      # góc trên trái để cho vùng xóa
+    assert (frame[720 - 60:720 - 5, 10:120] < 100).any()         # góc dưới trái: viên "Vẽ · cm"
     c.toolbar.visible = True
     draw_toolbar(frame, c, 0.0, None)
     assert (frame[30, 600] < 200).all()
+
+
+def test_tool_chip_legend_and_status_do_not_overlap():
+    from airgeo.ui.hud import draw_legend, draw_status
+    c = Controller(Config(), 1280, 720)
+    masks = []
+    for draw in (lambda f: draw_toolbar(f, c, 0.0, None), draw_legend,
+                 lambda f: draw_status(f, "Không nhận ra hình – vẽ lại")):
+        f = np.full((720, 1280, 3), 200, np.uint8)
+        draw(f)
+        masks.append((f != 200).any(axis=2))
+    a, b, s = masks
+    assert not (a & b).any() and not (a & s).any() and not (b & s).any()
+
+
+def test_pose_label_flips_left_near_right_edge():
+    from airgeo.ui.render import draw_pose_progress
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_pose_progress(frame, (1240, 400), ("undo", 0.5))
+    assert frame[380:420, 1080:1195].any()                       # "Hoàn tác" bên trái vòng tiến độ
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_pose_progress(frame, (400, 400), ("undo", 0.5))
+    assert frame[380:420, 450:560].any() and not frame[380:420, 250:355].any()   # giữa màn hình: bên phải
+
+
+def test_angle_chip_stays_below_top_of_canvas():
+    from airgeo.ui.render import angle_chip_center
+    hw, hh = 70, 17
+    x, y = angle_chip_center((640, 110), (0.0, 1.0), hw, hh, 1280, 720, top=60)   # đỉnh trên, viên đẩy lên
+    assert y - hh >= 60
+    # đỉnh C sát dải nút, phân giác trong chĩa xuống trái: không đủ chỗ phía trên -> sang phải đỉnh, không xuống đè hình
+    x, y = angle_chip_center((730, 90), (-0.3, 0.95), hw, hh, 1280, 720, top=60)
+    assert x - hw > 730 and y - hh >= 60
+
+
+def test_radial_menu_items_are_nearly_opaque():
+    from airgeo.ui.render import draw_radial_menu
+    c = Controller(Config(), 1280, 720)
+    c.menu.open((640, 400), 0.0)
+    frame = np.full((720, 1280, 3), 250, np.uint8)
+    draw_radial_menu(frame, c.menu, c.board, 0.0, None)
+    ux, uy = (int(v) for v in dict(c.menu.positions())["unit"])
+    assert frame[uy + 30, ux].max() <= 40                         # nền mục phủ ~90%: tường trắng không lộ
 
 
 def test_right_angle_gets_square_mark_and_other_angles_an_arc():

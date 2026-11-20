@@ -1,4 +1,5 @@
 from airgeo.config import Config
+from airgeo.geometry.shapes import shape_name
 from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerTracker
 from airgeo.pinch_filter import PinchFilter
@@ -63,7 +64,7 @@ def test_square_stroke_becomes_square(make_hand):
         t += 0.033
     step(make_hand(100, 100, ratio=0.6), t)
     step(make_hand(100, 100, ratio=0.6), t + 0.3)
-    assert ctl.board.shapes[0]["kind"] == "rect" and ctl.message == "Hình vuông"
+    assert ctl.board.shapes[0]["kind"] == "rect" and shape_name(ctl.board.shapes[0]) == "Hình vuông"
 
 
 def test_end_keeps_unfinished_stroke(make_hand):

@@ -8,8 +8,9 @@ RADIUS, ITEM_R, TIMEOUT = 120, 48, 6.0
 
 
 class RadialMenu:
-    def __init__(self, width, height, top=0, confirm_window=2.0):
+    def __init__(self, width, height, top=0, confirm_window=2.0, right=None):
         self.width, self.height, self.top = width, height, top
+        self.right = width - RADIUS - ITEM_R if right is None else right    # x tâm lớn nhất
         self.confirm_window = confirm_window
         self.center = None
         self.opened = 0.0
@@ -20,8 +21,10 @@ class RadialMenu:
         return self.center is not None
 
     def open(self, center, t):
-        m = RADIUS + ITEM_R        # kẹp tâm để mọi mục nằm trong khung (dưới dải trạng thái)
-        self.center = (min(max(center[0], m), self.width - m), min(max(center[1], self.top + m), self.height - m))
+        # kẹp tâm: mọi mục nằm trong khung (dưới dải trạng thái), không đè cột Tính, không thấp hơn H − 260
+        # (mục dưới cùng không sát mép dưới: tay thấp thì cổ tay ra khỏi khung, mất tay)
+        m = RADIUS + ITEM_R
+        self.center = (max(m, min(center[0], self.right)), max(self.top + m, min(center[1], self.height - 260)))
         self.opened, self._armed_until = t, float("-inf")
 
     def close(self):

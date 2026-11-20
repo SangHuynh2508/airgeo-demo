@@ -1,15 +1,18 @@
 """Vẽ thanh nút trên không (logic ở interaction/toolbar.py)."""
 from airgeo.ui.render import _label_chip, draw_button, fit_size
+from airgeo.ui.text import text_size
 
 LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa", "undo": "Hoàn tác", "clear": "Xóa hết"}
+CHIP_SIZE = 26          # cỡ chữ viên công cụ khi dải nút ẩn
 
 
 def draw_toolbar(img, ctl, t, cursor):
     """cursor: vị trí con trỏ (để viền nút đang trỏ vào), None nếu không thấy tay.
-    Dải ẩn: chỉ 1 viên nhỏ góc trên trái cho biết công cụ + đơn vị (bảng trống cho hình vẽ)."""
+    Dải ẩn: chỉ 1 viên góc dưới trái cho biết công cụ + đơn vị (góc trên trái là vùng xóa khi kéo hình)."""
     tb = ctl.toolbar
     if not tb.visible:
-        _label_chip(img, [f"{LABELS[ctl.tool]}  ·  {ctl.board.unit}"], (24, 16), 20, bold=True)
+        s = f"{LABELS[ctl.tool]}  ·  {ctl.board.unit}"
+        _label_chip(img, [s], (24, img.shape[0] - text_size([s], CHIP_SIZE, True)[1] - 18), CHIP_SIZE, bold=True)
         return
     roi = img[0:tb.height, :]
     roi[:] = (roi * 0.35).astype(roi.dtype)
