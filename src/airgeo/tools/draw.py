@@ -16,18 +16,17 @@ class DrawTool:
 
     def end(self, ctl, select=False):
         """Kết thúc nét đang vẽ (khi nhả, hoặc khi đổi công cụ giữa chừng). Nét < 2 điểm bị bỏ.
-        Nét không ra hình / đè hình khác bị bỏ + thông báo; hình mới thì báo tên hình, nhả tay thì chuyển sang
+        Nét không ra hình bị bỏ + thông báo; hình mới thay hình cũ, được phóng to ra giữa, báo tên hình; nhả tay thì chuyển sang
         Chọn hình đó (đổi công cụ giữa chừng thì chỉ giữ hình)."""
         raw, self.cur = self.cur, None
         if raw is None or len(raw) < 2:
             return
         shape = ctl.board.add_stroke(raw)
         t = raw[-1][2]
-        if shape is None:
-            ctl.notify("Hình mới đè lên hình khác – vẽ ở chỗ trống", t)
-        elif shape["kind"] == "free":
+        if shape["kind"] == "free":
             ctl.notify("Không nhận ra hình – vẽ lại", t)
         else:
+            ctl.board.fit(shape["id"], ctl.fit_box)     # hình ra giữa, to rõ cho học sinh
             ctl.notify(shape_name(shape), t)
             if not select:
                 return

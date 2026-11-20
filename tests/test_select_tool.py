@@ -1,3 +1,4 @@
+from helpers import place_line
 import math
 from airgeo.config import Config
 from airgeo.interaction.controller import Controller
@@ -6,7 +7,7 @@ from airgeo.interaction.pointer import PointerEvent as E
 
 def _ctl_with_line(stroke):
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(x, 300) for x in range(100, 301, 10)])
+    place_line(c, 300)
     c.do("select")
     return c
 
@@ -137,9 +138,9 @@ def test_stray_press_while_moving_to_menu_keeps_selection(stroke, press):
 
 def test_drop_on_another_shape_snaps_back_and_leaves_no_undo_step(stroke):
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(x, 300) for x in range(100, 301, 10)])
+    place_line(c, 300)
     c.do("draw")                                        # vẽ xong hình thứ nhất thì đã sang Chọn
-    stroke(c, [(x, 500) for x in range(100, 301, 10)], t0=1.0)
+    place_line(c, 500)
     c.do("select")
     sel = c.tools["select"]
     c.dispatch(E("down", (200, 500), 2.0))
@@ -157,7 +158,7 @@ def _blocked_drag(stroke):
     c = Controller(Config(), 1280, 720)
     for i, y in enumerate((300, 500, 650)):
         c.do("draw")
-        stroke(c, [(x, y) for x in range(100, 301, 10)], t0=i)
+        place_line(c, y)
     c.do("select")
     c.dispatch(E("down", (200, 500), 5.0))
     c.dispatch(E("move", (200, 400), 5.03))
@@ -182,9 +183,9 @@ def test_clear_mid_blocked_drag_stays_cleared(stroke):
 
 def test_dragged_shape_undone_mid_drag_does_not_crash(stroke):
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(x, 300) for x in range(100, 301, 10)])
+    place_line(c, 300)
     c.do("draw")
-    stroke(c, [(x, 500) for x in range(100, 301, 10)], t0=0.5)
+    place_line(c, 500)
     c.do("select")
     c.dispatch(E("down", (200, 500), 1.0))
     c.dispatch(E("move", (200, 550), 1.03))

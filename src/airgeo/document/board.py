@@ -1,4 +1,5 @@
-"""Bản vẽ: danh sách hình, tỉ lệ, đơn vị và lịch sử Undo. Nét vẽ luôn được nhận dạng; nét không ra hình bị bỏ.
+"""Bản vẽ: hình đang giảng, tỉ lệ, đơn vị và lịch sử Undo. Nét vẽ luôn được nhận dạng; nét không ra hình bị bỏ.
+Mỗi lúc 1 hình: vẽ hình mới thì thay hình cũ (Undo lấy lại).
 
 Mọi thay đổi đi qua các hàm ở đây; trước mỗi thao tác lưu 1 bản sao (shapes + scale) để Undo.
 Hình là dict: id, kind, pts, raw = [(x, y, t)] của nét gốc, locked (đã sửa số đo);
@@ -7,6 +8,7 @@ hình tròn thêm center, radius.
 import copy
 from collections import deque
 
+from airgeo.geometry.construct import fit
 from airgeo.geometry.hit import contains, distance_to_shape, overlaps
 from airgeo.geometry.measure import measure
 from airgeo.geometry.recognize import recognize
@@ -52,19 +54,28 @@ class Board:
         return next((s for s in self.shapes if s["id"] == sid), None)
 
     def add_stroke(self, raw):
-        """Thêm nét đã nhận dạng. Không thêm, không lưu bước Undo khi: nét không ra hình (trả về hình kind "free",
-        không có id) hoặc hình mới đè lên hình đã có (trả None)."""
+        """Nét đã nhận dạng thay hình cũ (1 bước Undo, tỉ lệ về chưa đặt vì hình mới chưa có số đo).
+        Nét không ra hình: không thêm, không lưu Undo, trả về hình kind "free" (không có id)."""
         shape = make_shape(raw)
         self.last_info = describe_result(shape)
         if shape["kind"] == "free":
             return shape
-        if self.collides(shape):
-            return None
         self.begin()
         shape["id"], shape["locked"] = self._next_id, False
         self._next_id += 1
-        self.shapes.append(shape)
+        self.shapes, self.scale = [shape], None
         return shape
+
+    def fit(self, sid, box):
+        """Phóng / thu hình cho vừa box và ra giữa; tỉ lệ nhân theo nên số đo (cm) giữ nguyên. Không tự lưu Undo
+        (đi cùng bước vẽ / sửa số đo)."""
+        s = self.get(sid)
+        if s is None:
+            return
+        new, k = fit(s, box)
+        self.shapes = [new if x["id"] == sid else x for x in self.shapes]
+        if self.scale is not None:
+            self.scale *= k
 
     def collides(self, shape, ignore_id=None):
         """Hình đầu tiên bị shape đè lên (bỏ qua hình ignore_id – chính nó khi kéo / sửa), None nếu không đè."""

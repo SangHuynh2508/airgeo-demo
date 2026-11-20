@@ -1,3 +1,4 @@
+from helpers import place_line
 import numpy as np
 
 from airgeo.config import Config
@@ -55,7 +56,7 @@ def test_drawing_functions_paint_on_frame(make_hand):
 def test_selection_overlay_paints(stroke, press):
     from airgeo.ui.render import draw_tool_overlay
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(x, 300) for x in range(100, 301, 10)])
+    place_line(c, 300)
     c.do("select")
     press(c, (200, 300))
     frame = np.zeros((720, 1280, 3), np.uint8)
@@ -67,7 +68,7 @@ def test_erase_overlay_paints_red(stroke):
     from airgeo.interaction.pointer import PointerEvent
     from airgeo.ui.render import draw_tool_overlay
     c = Controller(Config(), 1280, 720)
-    stroke(c, [(x, 300) for x in range(100, 301, 10)])
+    place_line(c, 300)
     c.do("erase")
     c.dispatch(PointerEvent("hover", (200, 300), 1.0))
     frame = np.zeros((720, 1280, 3), np.uint8)

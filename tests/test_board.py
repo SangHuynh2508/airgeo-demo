@@ -1,3 +1,4 @@
+import pytest
 import math
 
 from airgeo.document.board import Board
@@ -25,19 +26,17 @@ def test_add_stroke_gives_ids_and_last_info():
 
 def test_undo_restores_add_remove_and_clear():
     b = Board()
-    s = b.add_stroke(line_raw())
-    b.add_stroke(line_raw(400))
-    b.remove(s["id"])
+    b.add_stroke(line_raw())
+    s2 = b.add_stroke(line_raw(400))                 # thay hình 1
+    b.remove(s2["id"])
+    assert b.shapes == []
+    b.undo()
     assert [x["id"] for x in b.shapes] == [2]
     b.clear()
     assert b.shapes == []
     b.undo()
-    assert [x["id"] for x in b.shapes] == [2]
     b.undo()
-    assert [x["id"] for x in b.shapes] == [1, 2]
-    b.undo()
-    b.undo()
-    assert b.shapes == []
+    assert [x["id"] for x in b.shapes] == [1]
 
 
 def test_noop_operations_add_no_undo_step():
@@ -82,7 +81,7 @@ def test_history_is_limited():
         b.add_stroke(line_raw(100 + 50 * y))
     for _ in range(5):
         b.undo()
-    assert len(b.shapes) == 2
+    assert [x["id"] for x in b.shapes] == [2]       # chỉ gỡ được 3 bước: về lúc vừa vẽ hình 2
 
 
 def test_cycle_unit():
@@ -116,14 +115,6 @@ def test_shape_at_inside_prefers_edge_then_smaller_shape():
     assert b.shape_at((600, 600), 15) is None
 
 
-def test_add_stroke_rejects_overlap_without_undo_step():
-    b = Board()
-    b.add_stroke(line_raw(300))
-    assert b.add_stroke([(200, 250 + 10 * i, i / 30) for i in range(11)]) is None   # cắt đoạn ngang
-    assert len(b.shapes) == 1 and len(b._history) == 1
-    assert b.add_stroke(line_raw(400)) is not None and b.collides(b.shapes[0], ignore_id=1) is None
-
-
 def curve_raw():
     """Nét cong hở (nửa vòng tròn): không ra hình nào."""
     import math
@@ -140,3 +131,21 @@ def test_stroke_is_always_recognized_and_tidied():
     b = Board()
     s = b.add_stroke([(x, y * 0.95, t) for x, y, t in square_raw()])   # 200 x 190 -> hình vuông
     assert s["kind"] == "rect" and abs(math.dist(*s["pts"][:2]) - math.dist(*s["pts"][1:3])) < 1e-6
+
+
+def test_new_stroke_replaces_the_shape_and_undo_brings_it_back():
+    b = Board()
+    first = b.add_stroke(line_raw())
+    b.scale = 40.0
+    b.add_stroke(square_raw())
+    assert [s["kind"] for s in b.shapes] == ["rect"] and b.scale is None
+    b.undo()
+    assert [s["id"] for s in b.shapes] == [first["id"]] and b.scale == 40.0
+
+
+def test_board_fit_keeps_measurements_in_units():
+    b = Board()
+    s = b.add_stroke(line_raw())          # 200 px
+    b.scale = 20.0                        # 10 cm
+    b.fit(s["id"], (0, 0, 1000, 500))
+    assert math.dist(*b.shapes[0]["pts"]) == pytest.approx(1000) and b.scale == pytest.approx(100)

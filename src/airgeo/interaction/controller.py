@@ -16,6 +16,7 @@ from airgeo.tools.select import SelectTool
 KEY_ACTIONS = {ord("u"): "undo", ord("c"): "clear", ord("n"): "unit", ord("t"): "bar",
                ord("v"): "draw", ord("g"): "select", ord("x"): "erase"}
 TOOL_LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa"}
+FIT_MARGIN = 110      # lề quanh hình đã phóng to: chỗ cho ô nhãn cạnh, số đo góc, tay cầm xoay
 
 
 class Controller:
@@ -36,6 +37,12 @@ class Controller:
     def bounds(self):
         """Vùng vẽ (x0, y0, x1, y1) cho bảng nhập dựng lại hình: dải nút đang hiện thì trừ phần trên cùng."""
         return 0, self.toolbar.height if self.toolbar.visible else 0, self.width, self.height
+
+    @property
+    def fit_box(self):
+        """Vùng đặt hình sau khi vẽ / nhập số đo: vùng vẽ trừ cột Tính bên phải, chừa lề FIT_MARGIN cho nhãn."""
+        m = FIT_MARGIN
+        return m, self.bounds[1] + m, self.tools["select"].menu_x - m, self.height - m
 
     def dispatch(self, ev):
         if ev.kind == "down":

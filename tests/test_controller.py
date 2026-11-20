@@ -121,14 +121,6 @@ def test_recognized_shape_is_selected_and_tool_becomes_select(stroke):
     assert c.tool == "select" and c.tools["select"].selected == c.board.shapes[0]["id"]
 
 
-def test_overlapping_stroke_is_refused(stroke):
-    c = _ctl()
-    stroke(c, LINE)
-    c.do("draw")
-    stroke(c, [(200, 250 + 10 * i) for i in range(11)], t0=1.0)  # đoạn dọc cắt đoạn cũ
-    assert len(c.board.shapes) == 1 and c.message.startswith("Hình mới đè lên") and c.message_until > 1.0
-
-
 def test_switching_tool_mid_stroke_keeps_shape_without_auto_select():
     from airgeo.interaction.pointer import PointerEvent as E
     c = _ctl()
@@ -252,3 +244,14 @@ def test_edit_bounds_follow_toolbar_visibility():
     assert c.bounds[1] == 0                  # dải ẩn: hình sát mép trên vẫn trong vùng vẽ
     c.key(ord("t"), 0)
     assert c.bounds[1] == c.toolbar.height
+
+
+def test_drawn_shape_is_centered_and_enlarged(stroke):
+    c = _ctl()
+    sq = [(100 + 5 * i, 100) for i in range(20)] + [(200, 100 + 5 * i) for i in range(20)] + \
+         [(200 - 5 * i, 200) for i in range(20)] + [(100, 200 - 5 * i) for i in range(21)]
+    stroke(c, sq)
+    x0, y0, x1, y1 = c.fit_box
+    xs, ys = [p[0] for p in c.board.shapes[0]["pts"]], [p[1] for p in c.board.shapes[0]["pts"]]
+    assert max(ys) - min(ys) == pytest.approx(y1 - y0) and (min(xs) + max(xs)) / 2 == pytest.approx((x0 + x1) / 2)
+    assert y1 - y0 >= 0.65 * 720

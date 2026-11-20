@@ -56,6 +56,30 @@ def label_anchors(shape, offset=45):
     return out
 
 
+def fit(shape, box):
+    """Co giãn hình quanh tâm khung bao cho vừa khít box (x0, y0, x1, y1), giữ tỉ lệ, rồi dời vào giữa box
+    (học sinh nhìn rõ: hình luôn to và ở giữa). Trả về (hình mới, hệ số k). Khung bao dẹt (đoạn ngang) chỉ xét chiều
+    còn lại."""
+    if shape["kind"] == "circle":
+        (cx, cy), r = shape["center"], shape["radius"]
+        lo, hi = (cx - r, cy - r), (cx + r, cy + r)
+    else:
+        xs, ys = [p[0] for p in shape["pts"]], [p[1] for p in shape["pts"]]
+        lo, hi = (min(xs), min(ys)), (max(xs), max(ys))
+    w, h = hi[0] - lo[0], hi[1] - lo[1]
+    k = min((box[2] - box[0]) / w if w > 1e-6 else math.inf, (box[3] - box[1]) / h if h > 1e-6 else math.inf)
+    k = 1.0 if math.isinf(k) else k
+    c, bc = ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2), ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+
+    def move(p):
+        return (bc[0] + (p[0] - c[0]) * k, bc[1] + (p[1] - c[1]) * k, *p[2:])
+
+    new = dict(shape, pts=[move(p) for p in shape["pts"]], raw=[move(p) for p in shape.get("raw", [])])
+    if shape["kind"] == "circle":
+        new["center"], new["radius"] = move(shape["center"]), shape["radius"] * k
+    return new, k
+
+
 def _check_triangle(lengths, fmt):
     names = FIELDS["triangle"]
     for f in names:
