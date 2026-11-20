@@ -128,7 +128,7 @@ class SelectTool:
         elif ev.kind == "up":
             if self._clear_at is not None:
                 self.selected, self.show = None, set()
-            if self.over_trash:
+            if self.over_trash and board.get(self.selected) is not None:   # U giữa chừng gỡ mất hình: thôi
                 board.undo(self._snap)   # hình về chỗ cũ rồi mới xóa: Undo trả hình về đúng chỗ trước khi kéo
                 board.remove(self.selected)
                 self.selected, self.show = None, set()

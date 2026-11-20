@@ -9,7 +9,7 @@ import math
 from airgeo.geometry.measure import polygon_metrics
 
 SIDE_TOL, DEG_TOL = 0.08, 8.0           # nắn: cạnh lệch <= 8%, góc lệch 90° <= 8° (cùng ngưỡng hít thẳng trục)
-NAME_SIDE_TOL, NAME_DEG_TOL = 0.005, 0.5
+NAME_SIDE_TOL, NAME_DEG_TOL = 1e-4, 0.5       # hình đã nắn / dựng từ số nhập là chính xác; số hiện 2 chữ số lẻ
 
 
 def _close(a, b, tol):
@@ -52,8 +52,12 @@ def _triangle(pts):
         h = L * math.sqrt(3) / 2
         return [(mid[0] - u[0] * L / 2, mid[1] - u[1] * L / 2), (mid[0] + u[0] * L / 2, mid[1] + u[1] * L / 2),
                 (mid[0] + n[0] * h, mid[1] + n[1] * h)]
+    # đỉnh j có 2 cạnh kề sides[j - 1], sides[j] gần bằng nhau nhất (ứng viên tam giác cân)
+    j = min(range(3), key=lambda k: abs(sides[k - 1] - sides[k]) / max(sides[k - 1], sides[k]))
+    iso = _close(sides[j - 1], sides[j], SIDE_TOL)
     i = min(range(3), key=lambda k: abs(angles[k] - 90))
-    if abs(angles[i] - 90) <= DEG_TOL:                                   # vuông: đỉnh lên đường tròn đường kính huyền
+    # vuông, trừ khi là tam giác cân đỉnh hẹp (góc đáy ~85° gần vuông nhưng cân ở đỉnh khác) -> nắn cân
+    if abs(angles[i] - 90) <= DEG_TOL and not (iso and j != i):          # đỉnh lên đường tròn đường kính huyền
         p, v, q = pts[i - 1], pts[i], pts[(i + 1) % 3]
         mid, r = ((p[0] + q[0]) / 2, (p[1] + q[1]) / 2), math.dist(p, q) / 2
         if _close(math.dist(v, p), math.dist(v, q), SIDE_TOL):          # vuông cân: đỉnh trên trung trực
@@ -63,10 +67,9 @@ def _triangle(pts):
         out = list(pts)
         out[i] = (mid[0] + d[0] * r, mid[1] + d[1] * r)
         return out
-    # cân: đỉnh i có 2 cạnh kề sides[i - 1], sides[i] gần bằng nhau -> chiếu đỉnh lên trung trực đáy
-    i = min(range(3), key=lambda k: abs(sides[k - 1] - sides[k]) / max(sides[k - 1], sides[k]))
-    if not _close(sides[i - 1], sides[i], SIDE_TOL):
+    if not iso:                                                          # cân: chiếu đỉnh j lên trung trực đáy
         return pts
+    i = j
     p, v, q = pts[i - 1], pts[i], pts[(i + 1) % 3]
     mid, n = ((p[0] + q[0]) / 2, (p[1] + q[1]) / 2), _toward(p, q, v)
     h = n[0] * (v[0] - mid[0]) + n[1] * (v[1] - mid[1])

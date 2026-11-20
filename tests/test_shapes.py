@@ -68,3 +68,12 @@ def test_names_for_line_circle_and_right_angle_helper():
     assert shape_name({"kind": "circle", "pts": [], "center": (0, 0), "radius": 5}) == "Hình tròn"
     assert is_right(90.3) and not is_right(88)
     assert math.isclose(polygon_metrics(_rect(10, 20)["pts"])["angles"][0], 90)
+
+
+def test_thin_isosceles_is_not_snapped_to_right():
+    s = tidy(_tri((100, 600), (200, 600), (150, 193)))      # đỉnh 14°, 2 góc đáy 83°
+    assert shape_name(s) == "Tam giác cân"
+
+
+def test_name_tolerance_is_finer_than_displayed_digits():
+    assert shape_name(_rect(500, 502)) == "Hình chữ nhật"   # hiện 5.00 / 5.02 cm thì không gọi là vuông

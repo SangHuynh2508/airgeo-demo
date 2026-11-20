@@ -245,3 +245,10 @@ def test_toolbar_reopens_by_key_or_menu_item():
     c.dispatch(E("down", pos, 0.1))
     c.dispatch(E("up", pos, 0.2))
     assert c.toolbar.visible and not c.menu.is_open
+
+
+def test_edit_bounds_follow_toolbar_visibility():
+    c = _ctl()
+    assert c.bounds[1] == 0                  # dải ẩn: hình sát mép trên vẫn trong vùng vẽ
+    c.key(ord("t"), 0)
+    assert c.bounds[1] == c.toolbar.height

@@ -290,3 +290,13 @@ def test_trash_is_drawn_only_while_dragging(stroke):
     _drag_to(c, [(200, 300), (220, 320), (tx, ty)])
     draw_tool_overlay(frame, c)
     assert frame[int(ty) - 60:int(ty) + 60, int(tx) - 60:int(tx) + 60].any()
+
+
+def test_undo_twice_mid_trash_drag_does_not_claim_a_deletion(stroke):
+    c = _ctl_with_line(stroke)
+    tx, ty = c.tools["select"].trash
+    _drag_to(c, [(200, 300), (220, 320), (tx, ty)])
+    c.key(ord("u"), 3.5)                                          # gỡ lần kéo
+    c.key(ord("u"), 3.6)                                          # gỡ luôn nét vẽ
+    c.dispatch(E("up", (tx, ty), 4.0))
+    assert c.board.shapes == [] and c.message != "Đã xóa hình"

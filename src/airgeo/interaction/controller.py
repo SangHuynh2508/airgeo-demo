@@ -23,7 +23,7 @@ class Controller:
         self.board = Board(config.history_limit)
         self.toolbar = Toolbar(width, config)
         self.panel = EditPanel(config, width, height)
-        self.bounds = (0, config.toolbar_height, width, height)   # vùng vẽ, dưới thanh nút
+        self.width, self.height = width, height
         self.tools = {"draw": DrawTool(), "select": SelectTool(config, width, height), "erase": EraseTool(config)}
         self.tool = "draw"
         self.menu = RadialMenu(width, height, config.toolbar_height, config.confirm_window)
@@ -31,6 +31,11 @@ class Controller:
         self._fist_ok = True        # False sau mỗi lần nhả: tay thả lỏng khép hờ sau khi vẽ không được là Undo
         self._owner = None          # ai nhận lần chụm hiện tại: "panel" | "toolbar" | "tool"
         self.message, self.message_until = "", 0.0   # thông báo ngắn trên màn hình (vd. bị chặn đè hình)
+
+    @property
+    def bounds(self):
+        """Vùng vẽ (x0, y0, x1, y1) cho bảng nhập dựng lại hình: dải nút đang hiện thì trừ phần trên cùng."""
+        return 0, self.toolbar.height if self.toolbar.visible else 0, self.width, self.height
 
     def dispatch(self, ev):
         if ev.kind == "down":
