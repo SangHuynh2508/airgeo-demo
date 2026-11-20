@@ -1,7 +1,6 @@
 from helpers import place_line
 import math
 from airgeo.config import Config
-from airgeo.tools.select import TRASH_R
 from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerEvent as E
 
@@ -246,63 +245,54 @@ def _drag_to(c, pts, t0=3.0):
         c.dispatch(E("down" if i == 0 else "move", p, t0 + i * 0.03))
 
 
-def test_drag_into_trash_corner_deletes_and_undo_puts_it_back(stroke):
+def test_drag_into_top_left_corner_zone_deletes_at_once_and_undo_puts_it_back(stroke):
     c = _ctl_with_line(stroke)
     before = list(c.board.shapes[0]["pts"])
-    sel = c.tools["select"]
-    tx, ty = sel.trash
-    # góc trên phải, dưới dải nút: đưa tay lên thì cả bàn tay vẫn trong khung hình (đưa xuống góc dưới thì
-    # cổ tay ra khỏi khung, MediaPipe mất tay)
-    assert tx > 1000 and Config().toolbar_height <= ty - TRASH_R and ty + TRASH_R <= 720 * 0.4
-    _drag_to(c, [(200, 300), (220, 320), (600, 500), (tx, ty)])
-    assert sel.over_trash
-    c.dispatch(E("up", (tx, ty), 4.0))
-    assert c.board.shapes == [] and sel.selected is None and c.message == "Đã xóa hình" and not sel.over_trash
+    _drag_to(c, [(200, 300), (220, 320), (150, 150), (60, 60)])     # vào vùng góc trên trái: xóa ngay, chưa cần nhả
+    assert c.board.shapes == [] and c.tools["select"].selected is None and c.message == "Đã xóa hình"
+    c.dispatch(E("move", (300, 300), 3.2))
+    c.dispatch(E("up", (300, 300), 4.0))                            # rê / nhả sau đó không làm gì thêm
+    assert c.board.shapes == []
     c.do("undo")
-    assert c.board.shapes[0]["pts"] == before                     # về chỗ cũ trước khi kéo
+    assert c.board.shapes[0]["pts"] == before                       # về chỗ cũ trước khi kéo
 
 
-def test_drop_outside_trash_keeps_shape(stroke):
+def test_drag_near_but_outside_corner_zone_keeps_shape(stroke):
     c = _ctl_with_line(stroke)
-    sel = c.tools["select"]
-    tx, ty = sel.trash
-    _drag_to(c, [(200, 300), (220, 320), (tx, ty), (600, 500)])
-    assert not sel.over_trash
+    _drag_to(c, [(200, 300), (220, 320), (200, 200), (600, 500)])   # (200, 200) cách góc 283 px
     c.dispatch(E("up", (600, 500), 4.0))
     assert len(c.board.shapes) == 1
 
 
-def test_trash_ignores_rotation(stroke):
+def test_corner_zone_ignores_rotation(stroke):
     c = _ctl_with_line(stroke)
     sel = c.tools["select"]
     c.dispatch(E("down", (200, 300), 2.0)); c.dispatch(E("up", (200, 300), 2.1))
     h = sel.handle(c.board.shapes[0])
-    _drag_to(c, [h, (h[0] + 30, h[1] + 30), sel.trash])
-    assert not sel.over_trash
-    c.dispatch(E("up", sel.trash, 4.0))
+    _drag_to(c, [h, (h[0] + 30, h[1] + 30), (60, 60)])
+    c.dispatch(E("up", (60, 60), 4.0))
     assert len(c.board.shapes) == 1
 
 
-def test_trash_is_drawn_only_while_dragging(stroke):
+def test_corner_zone_is_drawn_only_while_dragging(stroke):
     import numpy as np
     from airgeo.ui.render import draw_tool_overlay
     c = _ctl_with_line(stroke)
-    tx, ty = c.tools["select"].trash
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
-    assert not frame[int(ty) - 60:int(ty) + 60, int(tx) - 60:int(tx) + 60].any()
-    _drag_to(c, [(200, 300), (220, 320), (tx, ty)])
+    assert not frame[60:120, 60:120].any()
+    _drag_to(c, [(200, 300), (220, 320), (600, 500)])
     draw_tool_overlay(frame, c)
-    assert frame[int(ty) - 60:int(ty) + 60, int(tx) - 60:int(tx) + 60].any()
+    assert frame[60:120, 60:120].any()
 
 
-def test_undo_twice_mid_trash_drag_does_not_claim_a_deletion(stroke):
+def test_undo_twice_mid_drag_then_corner_does_not_claim_a_deletion(stroke):
     c = _ctl_with_line(stroke)
-    tx, ty = c.tools["select"].trash
-    _drag_to(c, [(200, 300), (220, 320), (tx, ty)])
+    _drag_to(c, [(200, 300), (220, 320), (400, 400)])
     c.key(ord("u"), 3.5)                                          # gỡ lần kéo
     c.key(ord("u"), 3.6)                                          # gỡ luôn nét vẽ
-    c.dispatch(E("up", (tx, ty), 4.0))
+    c.dispatch(E("move", (60, 60), 3.7))
+    c.dispatch(E("up", (60, 60), 4.0))
     assert c.board.shapes == [] and c.message != "Đã xóa hình"
 
 
@@ -322,13 +312,3 @@ def test_rotation_handle_stays_below_visible_toolbar():
     tri = {"kind": "triangle", "pts": [(310.0, 300.0), (810.0, 300.0), (310.0, 90.0)]}   # góc trên phải trống
     hx, hy = c.tools["select"].handle(tri)
     assert hy - 14 > c.toolbar.height
-
-
-def test_title_and_measure_column_hidden_while_dragging(stroke):
-    import numpy as np
-    from airgeo.ui.render import draw_tool_overlay
-    c = _ctl_with_line(stroke)
-    _drag_to(c, [(200, 300), (220, 320), (600, 500)])
-    frame = np.zeros((720, 1280, 3), np.uint8)
-    draw_tool_overlay(frame, c)
-    assert not frame[70, 1250].any()                              # chỗ tên hình (cột Tính) – thùng rác chiếm góc đó

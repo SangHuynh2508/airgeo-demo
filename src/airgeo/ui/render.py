@@ -245,17 +245,16 @@ def draw_rotation_handle(img, shape, tool):
     cv2.circle(img, ip(tip), 3, SELECT_COLOR, -1, cv2.LINE_AA)
 
 
-def draw_trash(img, center, hot):
-    """Thùng rác ở góc dưới phải khi đang kéo hình; con trỏ vào vùng thả thì nền đỏ."""
+def draw_trash(img):
+    """Vùng xóa ở góc trên trái (chỉ hiện khi đang kéo hình): kéo hình vào là xóa."""
     from airgeo.tools.select import TRASH_R
-    cx, cy = ip(center)
-    x0, y0 = max(cx - TRASH_R, 0), max(cy - TRASH_R, 0)
-    roi = img[y0:cy + TRASH_R + 1, x0:cx + TRASH_R + 1]
+    roi = img[:TRASH_R + 1, :TRASH_R + 1]
     disk = roi.copy()
-    cv2.circle(disk, (cx - x0, cy - y0), TRASH_R, (0, 0, 190) if hot else (0, 0, 0), -1, cv2.LINE_AA)
-    roi[:] = cv2.addWeighted(roi, 0.12, disk, 0.88, 0)
-    edge = (255, 255, 255) if hot else ERASE_COLOR
-    cv2.circle(img, (cx, cy), TRASH_R, edge, 3 if hot else 2, cv2.LINE_AA)
+    cv2.circle(disk, (0, 0), TRASH_R, (0, 0, 170), -1, cv2.LINE_AA)
+    roi[:] = cv2.addWeighted(roi, 0.25, disk, 0.75, 0)
+    edge = (255, 255, 255)
+    cv2.circle(img, (0, 0), TRASH_R, ERASE_COLOR, 3, cv2.LINE_AA)
+    cx, cy = 70, 105                       # dưới viên "Vẽ · cm" ở góc trên trái
     # thùng: nắp + quai, thân hình thang, 3 vạch
     ox, oy = cx, cy - 20
     cv2.line(img, (ox - 22, oy - 16), (ox + 22, oy - 16), edge, 3, cv2.LINE_AA)
@@ -281,19 +280,17 @@ def draw_tool_overlay(img, ctl):
                        letters=not (angles and shape["kind"] == "triangle"))
         if angles:                                # chu vi / diện tích nằm trong bảng công thức
             draw_angles(img, shape)
-        dragging = tool._dragging and not tool.rotation
-        if not dragging:                          # đang kéo: thùng rác thế chỗ cột Tính
-            name = shape_name(shape)              # tên hình làm tiêu đề cột Tính, căn phải theo cột
-            w, _ = text_size([name], 22, True)
-            _label_chip(img, [name], (tool.menu_x + MENU_W - w - 10, tool.menu_y - 40), 22, bold=True)
-            for k, rect in tool.menu(shape):
-                draw_button(img, rect, MEASURE_LABELS[k], on=k in tool.show)
+        name = shape_name(shape)                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
+        w, _ = text_size([name], 22, True)
+        _label_chip(img, [name], (tool.menu_x + MENU_W - w - 10, tool.menu_y - 40), 22, bold=True)
+        for k, rect in tool.menu(shape):
+            draw_button(img, rect, MEASURE_LABELS[k], on=k in tool.show)
         if shape["kind"] == "triangle" and "area" in tool.show:
             draw_height(img, shape["pts"])
         draw_formulas(img, shape, tool, ctl.board.scale, ctl.board.unit)
         draw_rotation_handle(img, shape, tool)
-        if dragging:
-            draw_trash(img, tool.trash, tool.over_trash)
+        if tool._dragging and not tool.rotation:
+            draw_trash(img)
     else:
         draw_shape(img, shape, ERASE_COLOR, 6)
 
