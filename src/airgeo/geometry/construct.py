@@ -85,7 +85,7 @@ def _check_triangle(lengths, fmt):
     for f in names:
         o1, o2 = [g for g in names if g != f]
         if lengths[f] >= lengths[o1] + lengths[o2]:     # bất đẳng thức tam giác chặt
-            raise ValueError(f"{f} phai nho hon {o1} + {o2} = {fmt(lengths[o1] + lengths[o2])}")
+            raise ValueError(f"{f} phải nhỏ hơn {o1} + {o2} = {fmt(lengths[o1] + lengths[o2])}")
 
 
 def build(shape, lengths, bounds, min_side_px, fmt=lambda px: f"{px:.0f}px"):

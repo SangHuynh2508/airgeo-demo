@@ -85,7 +85,7 @@ def test_edit_panel_and_side_labels_paint(press):
     c.do("select")
     press(c, (640, 450))
     c.panel.open(c.board.shapes[0], "AB", c.board)
-    c.panel.error = "AB khong hop le"
+    c.panel.error = "AB không hợp lệ"
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
     draw_edit_panel(frame, c.panel, "cm", (640, 400))

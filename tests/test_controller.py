@@ -88,8 +88,9 @@ def test_type_3_4_5_gives_right_triangle(press):
     press(c, label_anchors(c.board.shapes[0])["AB"])
     for code in b"3\t4\t5\r":
         c.key(code, 0)
-    assert not c.panel.is_open and c.board.scale == pytest.approx(100)
-    assert polygon_metrics(c.board.shapes[0]["pts"])["angles"][1] == pytest.approx(90)
+    m = polygon_metrics(c.board.shapes[0]["pts"])
+    assert not c.panel.is_open and m["sides"][0] / c.board.scale == pytest.approx(3)
+    assert m["angles"][1] == pytest.approx(90)
 
 
 def test_clear_closes_panel(press):
@@ -111,7 +112,9 @@ def test_gesture_depends_on_tool_and_place(button):
     assert c.gesture_for((400, 400)) == "two_finger"
     c.do("draw")
     c.panel.is_open = True
-    assert c.gesture_for((400, 400)) == "two_finger"
+    assert c.gesture_for(c.panel.button_rects["ok"][:2]) == "two_finger"
+    x0, y0, x1, y1 = c.panel.pad_rect
+    assert c.gesture_for(((x0 + x1) / 2, (y0 + y1) / 2)) == "pinch"           # ô viết số: chụm như vẽ
 
 
 def test_recognized_shape_is_selected_and_tool_becomes_select(stroke):

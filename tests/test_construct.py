@@ -34,7 +34,7 @@ def test_triangle_keeps_centroid_direction_and_side(c):
 
 
 def test_degenerate_triangle_is_rejected_with_message():
-    with pytest.raises(ValueError, match=r"CA phai nho hon AB \+ BC = 3.00 cm"):
+    with pytest.raises(ValueError, match=r"CA phải nhỏ hơn AB \+ BC = 3.00 cm"):
         build(tri(), {"AB": 50, "BC": 100, "CA": 150}, B, 10, fmt=lambda px: f"{px / 50:.2f} cm")
 
 

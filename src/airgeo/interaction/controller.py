@@ -76,7 +76,10 @@ class Controller:
 
     def gesture_for(self, pos):
         """Cử chỉ bấm ở chỗ con trỏ: vẽ trong vùng vẽ bằng chụm ngón cái + trỏ; thanh nút, bảng nhập,
-        Chọn, Xóa bằng áp 2 ngón trỏ + giữa (với tới mép trên camera mà ngón cái không bị mất)."""
+        Chọn, Xóa bằng áp 2 ngón trỏ + giữa (với tới mép trên camera mà ngón cái không bị mất).
+        Bảng nhập mở: ô viết số dùng chụm (viết như vẽ), nút và ô cạnh dùng 2 ngón."""
+        if self.panel.is_open:
+            return "pinch" if pos is not None and self.panel.in_pad(pos) else "two_finger"
         if self.tool == "draw" and not self.panel.is_open and not self.menu.is_open and (pos is None or not self.toolbar.contains(pos)):
             return "pinch"
         return "two_finger"

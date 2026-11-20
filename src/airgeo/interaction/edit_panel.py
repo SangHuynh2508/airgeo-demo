@@ -1,75 +1,83 @@
-"""Bảng nhập số đo + bàn phím số trên không (logic và bố cục; vẽ ở ui/edit_panel.py).
+"""Bảng nhập số đo (logic và bố cục; vẽ ở ui/edit_panel.py).
 
-Bảng có đủ các ô của hình (tam giác AB BC CA, chữ nhật dai rong, tròn r, đoạn thẳng d) để nhập
-cả bộ số rồi dựng hình 1 lần (sửa lần lượt từng cạnh có thể kẹt ở bước giữa vì bất đẳng thức tam giác).
+Nhập số bằng 2 cách cùng lúc vào ô đang chọn:
+  - Viết số trên không trong ô viết (chụm ngón cái + trỏ như vẽ); gesture/digits.py nhận dạng từng chữ số.
+  - Bàn phím máy tính: số, dấu chấm, Backspace, Enter = OK, Tab = ô kế, Esc = Hủy.
+Nút (áp 2 ngón): `.` `←` (xóa chữ số cuối) `Xóa` (xóa cả ô) `OK` `Hủy`.
 
-Tỉ lệ: lần OK đầu tiên (hoặc khi bật "Dat lai ti le") lấy ô đầu tiên có giá trị làm chuẩn,
-scale = độ dài hiện tại của cạnh đó (px) / giá trị (cm) -> cạnh đó giữ nguyên kích thước;
-nếu vậy mà hình tràn màn hình thì tỉ lệ tự thu nhỏ tới khi vừa.
+Bảng có đủ các ô của hình (tam giác AB BC CA, chữ nhật dai rong, tròn r, đoạn thẳng d) để nhập cả bộ số rồi dựng
+hình 1 lần. Chưa có tỉ lệ: ô đầu tiên có số làm chuẩn, ô trống giữ tỉ lệ cạnh như đang vẽ. Dựng xong hình được
+phóng to ra giữa vùng vẽ (construct.fit) – tỉ lệ px/cm nhân theo nên số đo giữ đúng số đã nhập.
 """
-from airgeo.geometry.construct import OUT_OF_SCREEN, build, current_lengths, field_names
-from airgeo.geometry.units import fmt_length, to_px, to_units, trim
+import math
 
-KEYS = [["7", "8", "9"], ["4", "5", "6"], ["1", "2", "3"], [".", "0", "<-"]]
+from airgeo.geometry.construct import build, current_lengths, field_names, fit
+from airgeo.geometry.units import fmt_length, to_px, to_units, trim
+from airgeo.gesture.digits import DigitReader
+
 MAX_LEN = 8
-GAP = 10
-FIELD_W = 140
+GAP = 12
+BUTTONS = ["dot", "back", "clear", "ok", "cancel"]
+EVERYWHERE = (-math.inf, -math.inf, math.inf, math.inf)    # dựng hình không giới hạn: phóng to / thu nhỏ sau
 
 
 class EditPanel:
     def __init__(self, config, width, height):
-        self.min_side = config.min_side_px
         self.W, self.H, self.top = width, height, config.toolbar_height
-        # ponytail: phím co lại theo chiều cao khung hình (480p -> ~57 px); khung < 400 px thì bảng vẫn tràn
-        self.k = max(30, min(config.key_size, int((height - self.top - GAP - 170) / 4)))
         self.is_open = False
-        self.kind, self.fields, self.values, self.hints = None, [], {}, {}
-        self.focus, self.fresh, self.error, self.reset_scale = None, False, "", False
+        self.kind, self.fields, self.values = None, [], {}
+        self.focus, self.fresh, self.error = None, False, ""
+        self.base, self.cur = "", None          # phần số có trước khi viết / nét đang viết
         self._layout()
+        self.reader = DigitReader(self.pad_rect[3] - self.pad_rect[1])
 
     def _layout(self):
-        k, g = self.k, GAP
-        inner_w = 3 * FIELD_W + 2 * g                          # 440 px
-        pw, ph = inner_w + 2 * g, 170 + 4 * k                  # tiêu đề, hàng ô, 4 hàng phím, dòng lỗi
-        x0 = (self.W - pw) // 2
-        y0 = max(self.top + g, (self.top + self.H - ph) // 2)
+        g = GAP
+        pw = min(760, self.W - 2 * g)
+        bh = 56 if self.H >= 600 else 44
+        pad_h = max(110, min(220, self.H - 2 * g - (40 + 60 + bh + 34 + 5 * g)))
+        ph = 40 + 60 + pad_h + bh + 34 + 5 * g
+        x0, y0 = (self.W - pw) // 2, max(g, (self.H - ph) // 2)
+        ix, iw = x0 + g, pw - 2 * g
         self.rect = (x0, y0, x0 + pw, y0 + ph)
-        ix, iy = x0 + g, y0 + g
-        self.title_pos = (ix, iy + 20)
-        self.reset_rect = (ix + inner_w - 170, iy, ix + inner_w, iy + 26)
-        self.field_rects = [(ix + i * (FIELD_W + g), iy + 30, ix + i * (FIELD_W + g) + FIELD_W, iy + 80)
-                            for i in range(3)]
-        ky = iy + 80 + g
-        self.key_rects = {ch: (ix + c * (k + g), ky + r * (k + g), ix + c * (k + g) + k, ky + r * (k + g) + k)
-                          for r, row in enumerate(KEYS) for c, ch in enumerate(row)}
-        rx = ix + 3 * (k + g) + g
-        self.ok_rect = (rx, ky, ix + inner_w, ky + k)
-        self.cancel_rect = (rx, ky + k + g, ix + inner_w, ky + 2 * k + g)
-        self.error_pos = (ix, ky + 4 * k + 3 * g + 22)
+        self.title_pos = (ix, y0 + g)
+        fy = y0 + g + 40
+        fw = (iw - 2 * g) // 3
+        self.field_rects = [(ix + i * (fw + g), fy, ix + i * (fw + g) + fw, fy + 60) for i in range(3)]
+        py = fy + 60 + g
+        self.pad_rect = (ix, py, ix + iw, py + pad_h)
+        by = py + pad_h + g
+        bw = (iw - 4 * g) // 5
+        self.button_rects = {b: (ix + i * (bw + g), by, ix + i * (bw + g) + bw, by + bh) for i, b in enumerate(BUTTONS)}
+        self.error_pos = (ix, by + bh + g // 2)
 
     # ---- Mở / đóng ----
     def open(self, shape, field, board):
         self.shape_id, self.kind = shape["id"], shape["kind"]
         self.fields = field_names(self.kind)
         cur = current_lengths(shape)
-        self.hints = {f: f"~{cur[f]:.0f}px" for f in self.fields}
         self.values = {f: "" if board.scale is None else trim(to_units(cur[f], board.unit, board.scale))
                        for f in self.fields}
-        self.focus, self.fresh = field, True
-        self.error, self.reset_scale, self.is_open = "", False, True
+        self.focus_field(field)
+        self.error, self.is_open = "", True
 
     def close(self):
         self.is_open = False
+        self.cur = None
 
-    # ---- Gõ số ----
+    # ---- Nhập số ----
     def focus_field(self, f):
         self.focus, self.fresh = f, True
+        self.reader.clear()
+        self.cur = None
 
     def next_field(self):
         i = self.fields.index(self.focus)
         self.focus_field(self.fields[(i + 1) % len(self.fields)])
 
     def type(self, ch):
+        """Bàn phím / nút: chữ số, ".", "<-". Phần đã viết trong ô viết được giữ lại thành số thường."""
+        self.reader.clear()
         v = self.values[self.focus]
         if self.fresh and ch != "<-":
             v = ""                      # phím đầu tiên sau khi chọn ô thay hẳn số điền sẵn
@@ -83,56 +91,77 @@ class EditPanel:
         self.values[self.focus] = v
         self.error = ""
 
+    def in_pad(self, pos):
+        x0, y0, x1, y1 = self.pad_rect
+        return x0 <= pos[0] <= x1 and y0 <= pos[1] <= y1
+
+    def _pen(self, ev):
+        """Nét viết trong ô viết: down bắt đầu, move nối thêm, up nhận dạng lại cả dãy."""
+        if ev.kind == "down":
+            if self.fresh:
+                self.base, self.fresh = "", False
+            elif not self.reader.groups:
+                self.base = self.values[self.focus]
+            self.cur = [ev.pos]
+        elif ev.kind == "move":
+            self.cur.append(ev.pos)
+        elif ev.kind == "up":
+            self.reader.add(self.cur)
+            self.cur = None
+            self.values[self.focus] = (self.base + self.reader.text)[:MAX_LEN]
+            self.error = ""
+
+    def press(self, name):
+        if name == "back":
+            if self.reader.groups:
+                self.reader.pop()
+                self.values[self.focus] = self.base + self.reader.text
+            else:
+                self.type("<-")
+        elif name == "dot":
+            self.type(".")
+        elif name == "clear":
+            self.reader.clear()
+            self.values[self.focus], self.base, self.fresh = "", "", False
+
     # ---- OK ----
-    def submit(self, board, bounds):
+    def submit(self, board, box):
         shape = board.get(self.shape_id)
         if shape is None or shape["kind"] != self.kind:
-            # hình đã bị xóa / Undo mất trong lúc bảng mở
-            self.close()
+            self.close()                # hình đã bị xóa / Undo mất trong lúc bảng mở
             return False
-        scale = None if self.reset_scale else board.scale
+        scale = board.scale
         entered = {}
         for f in self.fields:
             s = self.values[f]
             if s == "":
                 if scale is not None:
-                    self.error = f"Chua nhap {f}"
+                    self.error = f"Chưa nhập {f}"
                     return False
-                continue                # chưa có tỉ lệ: ô trống giữ độ dài hiện tại
+                continue                # chưa có tỉ lệ: ô trống giữ tỉ lệ cạnh hiện tại
             try:
                 v = float(s)
             except ValueError:
                 v = 0.0
             if v <= 0:
-                self.error = f"{f} khong hop le"
+                self.error = f"{f} không hợp lệ"
                 return False
             entered[f] = v
         if not entered:
-            self.error = "Chua nhap so nao"
+            self.error = "Chưa nhập số nào"
             return False
         cur, unit = current_lengths(shape), board.unit
-        new_scale = scale is None
-        if new_scale:
+        if scale is None:
             first = next(f for f in self.fields if f in entered)
             scale = cur[first] / to_px(entered[first], unit, 1.0)
-        for _ in range(20):
-            lengths = {f: to_px(entered[f], unit, scale) if f in entered else cur[f] for f in self.fields}
-            try:
-                new = build(shape, lengths, bounds, self.min_side, lambda px: fmt_length(px, scale, unit))
-                break
-            except ValueError as e:
-                self.error = str(e)
-                # Đang chọn tỉ lệ mới mà hình tràn màn hình (vd. dai 5 rong 9 trên hình đang dẹt):
-                # thu nhỏ tỉ lệ tới khi vừa. Tỉ lệ đã đặt thì không tự đổi, báo lỗi để người dùng sửa số.
-                if not (new_scale and self.error == OUT_OF_SCREEN):
-                    return False
-                scale *= 0.8
-        else:
+        lengths = {f: to_px(entered[f], unit, scale) if f in entered else cur[f] for f in self.fields}
+        try:
+            new = build(shape, lengths, EVERYWHERE, 0.0, lambda px: fmt_length(px, scale, unit))
+        except ValueError as e:
+            self.error = str(e)
             return False
-        if board.collides(new, self.shape_id):
-            self.error = "Hinh de len hinh khac - nhap so nho hon"
-            return False
-        board.apply_edit(self.shape_id, new, scale)
+        new, k = fit(new, box)
+        board.apply_edit(self.shape_id, new, scale * k)
         self.close()
         return True
 
@@ -143,16 +172,18 @@ class EditPanel:
         for f, r in zip(self.fields, self.field_rects):
             if inside(r):
                 return ("field", f)
-        for ch, r in self.key_rects.items():
+        for b, r in self.button_rects.items():
             if inside(r):
-                return ("key", ch)
-        for name, r in (("ok", self.ok_rect), ("cancel", self.cancel_rect), ("reset", self.reset_rect)):
-            if inside(r):
-                return (name, None)
+                return ("button", b)
         return None
 
     def on_event(self, ev, ctl):
-        """Khi bảng mở, mọi lần chụm thuộc về bảng; chỉ lúc bắt đầu chụm mới bấm."""
+        """Khi bảng mở, mọi lần chụm thuộc về bảng. Chụm bắt đầu trong ô viết là viết; còn lại chỉ lúc bắt đầu chụm
+        (down) mới bấm."""
+        if self.cur is not None or (ev.kind == "down" and self.in_pad(ev.pos)):
+            if ev.kind != "hover":
+                self._pen(ev)
+            return
         if ev.kind != "down":
             return
         h = self.hit(ev.pos)
@@ -161,14 +192,12 @@ class EditPanel:
         what, arg = h
         if what == "field":
             self.focus_field(arg)
-        elif what == "key":
-            self.type(arg)
-        elif what == "ok":
-            self.submit(ctl.board, ctl.bounds)
-        elif what == "cancel":
+        elif arg == "ok":
+            self.submit(ctl.board, ctl.fit_box)
+        elif arg == "cancel":
             self.close()
-        elif what == "reset":
-            self.reset_scale = not self.reset_scale
+        else:
+            self.press(arg)
 
     def key(self, code, ctl):
         """Bàn phím máy tính khi bảng mở. Trả về True nếu đã dùng phím."""
@@ -177,9 +206,9 @@ class EditPanel:
         elif code == 8:
             self.type("<-")
         elif code == 13:
-            self.submit(ctl.board, ctl.bounds)
+            self.submit(ctl.board, ctl.fit_box)
         elif code == 27:
-            self.close()                # Esc = Huy, không thoát app
+            self.close()                # Esc = Hủy, không thoát app
         elif code == 9:
             self.next_field()
         else:
