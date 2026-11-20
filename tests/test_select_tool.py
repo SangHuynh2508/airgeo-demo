@@ -301,3 +301,13 @@ def test_undo_twice_mid_trash_drag_does_not_claim_a_deletion(stroke):
     c.key(ord("u"), 3.6)                                          # gỡ luôn nét vẽ
     c.dispatch(E("up", (tx, ty), 4.0))
     assert c.board.shapes == [] and c.message != "Đã xóa hình"
+
+
+def test_rotation_handle_keeps_off_vertices_where_angle_values_sit():
+    from airgeo.tools.select import SelectTool
+    tool = SelectTool(Config(), 1280, 720)
+    pts = [(370.0, 610.0), (750.0, 610.0), (750.0, 110.0)]          # đỉnh C đúng góc trên phải khung bao
+    for shape in ({"kind": "triangle", "pts": pts},
+                  {"kind": "rect", "pts": [(310.0, 110.0), (810.0, 110.0), (810.0, 610.0), (310.0, 610.0)]}):
+        hx, hy = tool.handle(shape)                                  # chữ nhật: góc nào cũng có đỉnh -> ra xa hơn
+        assert all(math.dist((hx, hy), p) > 60 for p in shape["pts"])

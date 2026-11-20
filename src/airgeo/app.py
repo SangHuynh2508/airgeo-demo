@@ -100,8 +100,8 @@ def run(config: Config):
             draw_pose_progress(frame, res.fpt, ctl.poses.progress)
             if show_help and tech:
                 draw_help(frame)
-            elif show_help and t - last_hand > 1.5:
-                draw_legend(frame)
+            elif show_help and t - last_hand > 1.5 and not ctl.board.shapes:
+                draw_legend(frame)      # có hình rồi thì ẩn để không che hình học sinh đang xem
             if t < ctl.message_until:
                 draw_status(frame, ctl.message)
             elif t < status_until:

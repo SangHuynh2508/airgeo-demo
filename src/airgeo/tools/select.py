@@ -55,10 +55,13 @@ class SelectTool:
         if shape is None or shape["kind"] == "circle":
             return None
         xs, ys = [p[0] for p in shape["pts"]], [p[1] for p in shape["pts"]]
-        d = HANDLE_OFFSET
-        corners = [(max(xs) + d, min(ys) - d), (min(xs) - d, min(ys) - d), (max(xs) + d, max(ys) + d),
-                   (min(xs) - d, max(ys) + d)]
-        ok = [c for c in corners if c[1] >= self.top + 20 and 20 <= c[0] <= self.menu_x - 20]
+        for d in (HANDLE_OFFSET, HANDLE_OFFSET + 28):    # góc nào cũng có đỉnh (chữ nhật) thì ra xa hơn
+            corners = [(max(xs) + d, min(ys) - d), (min(xs) - d, min(ys) - d), (max(xs) + d, max(ys) + d),
+                       (min(xs) - d, max(ys) + d)]
+            ok = [c for c in corners if c[1] >= 40 and 20 <= c[0] <= self.menu_x - 20]
+            free = [c for c in ok if all(math.dist(c, p) > 60 for p in shape["pts"])]   # chừa chỗ tên đỉnh / số góc
+            if free:
+                return free[0]
         return (ok or corners[2:])[0]
 
     def _label_at(self, board, pos):

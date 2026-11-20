@@ -86,6 +86,7 @@ def chip_labels(s, scale, unit):
 
 VALUE_SIZE = 20                       # cỡ chữ số đo trên hình (cạnh, góc, bán kính)
 ANGLE_R, RIGHT_MARK = 26, 16          # bán kính cung góc / cạnh ô vuông góc vuông (px)
+LEADER = 34                           # khoảng từ đỉnh tới mép viên số đo góc (đường chỉ)
 
 
 def _value(img, s, center):
@@ -94,37 +95,52 @@ def _value(img, s, center):
     _label_chip(img, [s], (int(center[0] - w / 2), int(center[1] - h / 2)), VALUE_SIZE)
 
 
-def draw_angle(img, v, p, n, angle):
-    """Ký hiệu góc tại đỉnh v (2 cạnh tới p, n) như SGK: góc vuông = ô vuông nhỏ, không ghi số;
-    góc khác = cung tròn nhỏ + số độ đặt trong góc theo phân giác."""
+def draw_angle(img, v, p, n, angle, name=None):
+    """Ký hiệu góc tại đỉnh v (2 cạnh tới p, n) như SGK: góc vuông = ô vuông nhỏ, góc khác = cung tròn nhỏ.
+    Có name: viên "góc A = 60°" đặt ngoài hình theo phân giác ngoài, đường chỉ mảnh từ viên tới ký hiệu
+    (học sinh đọc được số mà số không đè lên hình)."""
     d1, d2 = math.dist(v, p) or 1.0, math.dist(v, n) or 1.0
     u1 = ((p[0] - v[0]) / d1, (p[1] - v[1]) / d1)
     u2 = ((n[0] - v[0]) / d2, (n[1] - v[1]) / d2)
+    bx, by = u1[0] + u2[0], u1[1] + u2[1]
+    b = math.hypot(bx, by) or 1.0
+    bx, by = bx / b, by / b                       # phân giác trong (đơn vị)
     if is_right(angle):
         s = RIGHT_MARK
         corner = [(v[0] + s * u1[0], v[1] + s * u1[1]), (v[0] + s * (u1[0] + u2[0]), v[1] + s * (u1[1] + u2[1])),
                   (v[0] + s * u2[0], v[1] + s * u2[1])]
         cv2.polylines(img, [np.array([ip(q) for q in corner], np.int32)], False, ANGLE_COLOR, 2, cv2.LINE_AA)
+        mark = RIGHT_MARK * 1.41
+    else:
+        a1, a2 = math.degrees(math.atan2(u1[1], u1[0])), math.degrees(math.atan2(u2[1], u2[0]))
+        sweep = (a2 - a1) % 360
+        start = a1 if sweep <= 180 else a2
+        cv2.ellipse(img, ip(v), (ANGLE_R, ANGLE_R), 0, start, start + min(sweep, 360 - sweep), ANGLE_COLOR, 2,
+                    cv2.LINE_AA)
+        mark = ANGLE_R
+    if name is None:
         return
-    a1, a2 = math.degrees(math.atan2(u1[1], u1[0])), math.degrees(math.atan2(u2[1], u2[0]))
-    sweep = (a2 - a1) % 360
-    start = a1 if sweep <= 180 else a2
-    cv2.ellipse(img, ip(v), (ANGLE_R, ANGLE_R), 0, start, start + min(sweep, 360 - sweep), ANGLE_COLOR, 2,
-                cv2.LINE_AA)
-    bx, by = u1[0] + u2[0], u1[1] + u2[1]
-    b = math.hypot(bx, by) or 1.0
-    # nền số ~ hình tròn bán kính 24: góc càng hẹp càng phải đẩy xa đỉnh mới không chạm 2 cạnh
-    dist = min(ANGLE_R + 4 + 24 / max(math.sin(math.radians(angle) / 2), 0.15), 160)
-    _value(img, f"{angle:.0f}°", (v[0] + bx / b * dist, v[1] + by / b * dist))
+    label = f"góc {name} = {angle:.0f}°"
+    w, h = text_size([label], VALUE_SIZE)
+    hw, hh = w / 2 + 10, h / 2 + 5                # nửa khung viên (cả nền tối)
+    # tâm viên trên phân giác ngoài, đủ xa để cả viên nằm ngoài đỉnh; giữ trong khung hình
+    reach = min(hw / max(abs(bx), 1e-3), hh / max(abs(by), 1e-3)) + LEADER
+    H, W = img.shape[:2]
+    c = (min(max(v[0] - bx * reach, hw + 4), W - hw - 4), min(max(v[1] - by * reach, hh + 4), H - hh - 4))
+    edge = min(hw / max(abs(c[0] - v[0]), 1e-3), hh / max(abs(c[1] - v[1]), 1e-3), 1.0)
+    start = (c[0] + (v[0] - c[0]) * edge, c[1] + (v[1] - c[1]) * edge)      # mép viên phía đỉnh
+    cv2.line(img, ip(start), ip((v[0] + bx * mark, v[1] + by * mark)), ANGLE_COLOR, 1, cv2.LINE_AA)
+    _value(img, label, c)
 
 
 def draw_angles(img, s):
-    """Ký hiệu + số đo các góc của tam giác / hình chữ nhật."""
+    """Tam giác: ký hiệu + viên số đo từng góc. Hình chữ nhật: 4 góc vuông nên chỉ ô vuông, không ghi số."""
     if s["kind"] not in ("triangle", "rect"):
         return
     pts, angles = s["pts"], measure(s)["angles"]
+    names = "ABC" if s["kind"] == "triangle" else [None] * 4
     for i in range(len(pts)):
-        draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % len(pts)], angles[i])
+        draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % len(pts)], angles[i], names[i])
 
 
 DIM = 0.45     # hình không được chọn: còn thấy để tránh vẽ đè, nhưng lùi lại sau hình đang thao tác
@@ -153,6 +169,9 @@ def draw_trails(img, raw_trail, filt_trail):
         cv2.polylines(img, [np.array([ip(p) for p in filt_trail], np.int32)], False, FILT_COLOR, 2, cv2.LINE_AA)
 
 
+CURSOR_R = 14
+
+
 def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
     if hand and show_skeleton:
         for a, b in CONNECTIONS:
@@ -160,10 +179,11 @@ def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
     if hand:
         cv2.circle(img, ip(hand["p4"]), 5, RAW_COLOR, -1)
         cv2.circle(img, ip(hand["p8"]), 5, RAW_COLOR, -1)
-    if res.fpt:
-        cv2.circle(img, ip(res.fpt), 9, PINCH_COLOR if res.pinched else FILT_COLOR, 2)
+    if res.fpt:                    # con trỏ to cho học sinh nhìn từ xa; tô đặc = đang chụm (đang vẽ / bấm)
+        cv2.circle(img, ip(res.fpt), CURSOR_R, PINCH_COLOR if res.pinched else FILT_COLOR,
+                   -1 if res.pinched else 3, cv2.LINE_AA)
     elif res.holding and hand:
-        cv2.circle(img, ip(draw_point(hand, gesture)), 9, HOLD_COLOR, 2)
+        cv2.circle(img, ip(draw_point(hand, gesture)), CURSOR_R, HOLD_COLOR, 3, cv2.LINE_AA)
 
 
 SELECT_COLOR = (255, 200, 0)     # xanh dương nhạt: hình đang chọn
@@ -171,15 +191,16 @@ ERASE_COLOR = (0, 0, 255)        # đỏ: hình sắp bị xóa
 MEASURE_LABELS = {"angles": "Góc", "perimeter": "Chu vi", "area": "Diện tích"}
 
 
-def draw_selection(img, s, color=SELECT_COLOR, scale=None, unit="cm"):
-    """Viền nổi bật hình đang chọn (đỏ khi đang kéo đè lên hình khác); tên đỉnh A, B, C (D); hình tròn có
-    đường bán kính; nhãn cạnh bấm được để sửa số đo, ghi số đo khi đã có tỉ lệ."""
+def draw_selection(img, s, color=SELECT_COLOR, scale=None, unit="cm", letters=True):
+    """Viền nổi bật hình đang chọn (đỏ khi đang kéo đè lên hình khác); tên đỉnh A, B, C (D) (ẩn khi viên góc đã
+    ghi tên); hình tròn có đường bán kính; nhãn cạnh bấm được để sửa số đo, ghi số đo khi đã có tỉ lệ."""
     draw_shape(img, s, color, 6)
-    if s["kind"] in ("triangle", "rect"):
+    if s["kind"] in ("triangle", "rect") and letters:
         pts = s["pts"]
         cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
-        for name, (x, y) in zip("ABCD", pts):
-            text(img, name, ip((x + (x - cx) * 0.15 - 6, y + (y - cy) * 0.15 + 6)), 0.7, color)
+        for name, (x, y) in zip("ABCD", pts):      # cách đỉnh 24 px ra phía ngoài, hình to nhỏ đều sát đỉnh
+            d = math.hypot(x - cx, y - cy) or 1.0
+            text(img, name, ip((x + (x - cx) / d * 24 - 7, y + (y - cy) / d * 24 + 7)), 0.7, color)
     elif s["kind"] == "circle":
         c, r = s["center"], s["radius"]
         cv2.line(img, ip(c), ip((c[0] + r, c[1])), color, 2, cv2.LINE_AA)
@@ -243,8 +264,10 @@ def draw_tool_overlay(img, ctl):
     if shape is None:
         return
     if ctl.tool == "select":
-        draw_selection(img, shape, ERASE_COLOR if tool.blocked else SELECT_COLOR, ctl.board.scale, ctl.board.unit)
-        if "angles" in tool.show:                 # chu vi / diện tích nằm trong bảng công thức
+        angles = "angles" in tool.show
+        draw_selection(img, shape, ERASE_COLOR if tool.blocked else SELECT_COLOR, ctl.board.scale, ctl.board.unit,
+                       letters=not (angles and shape["kind"] == "triangle"))
+        if angles:                                # chu vi / diện tích nằm trong bảng công thức
             draw_angles(img, shape)
         name = shape_name(shape)                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
         w, _ = text_size([name], 22, True)
@@ -285,7 +308,11 @@ def draw_height(img, pts):
         dashed_line(img, min((a, b), key=lambda p: math.dist(p, foot)), foot, SELECT_COLOR)
     dashed_line(img, c, foot, SELECT_COLOR)
     cv2.circle(img, ip(foot), 4, SELECT_COLOR, -1)
-    text(img, "h", ip(((c[0] + foot[0]) / 2 + 8, (c[1] + foot[1]) / 2)), 0.6, SELECT_COLOR)
+    # chữ h lệch vào phía trong tam giác: đường cao trùng cạnh (tam giác vuông) thì không đè nhãn cạnh ở ngoài
+    m = ((c[0] + foot[0]) / 2, (c[1] + foot[1]) / 2)
+    g = (sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3)
+    d = math.dist(m, g) or 1.0
+    text(img, "h", ip((m[0] + (g[0] - m[0]) / d * 16 - 5, m[1] + (g[1] - m[1]) / d * 16 + 6)), 0.6, SELECT_COLOR)
 
 
 def _block_size(block, size):

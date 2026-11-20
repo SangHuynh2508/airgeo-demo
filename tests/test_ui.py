@@ -1,4 +1,5 @@
 from helpers import place_line
+import cv2
 import numpy as np
 
 from airgeo.config import Config
@@ -293,3 +294,48 @@ def test_title_shown_for_line_without_menu():
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_tool_overlay(frame, c)
     assert frame[sel.menu_y - 40:sel.menu_y - 4, sel.menu_x + 100:sel.menu_x + 150].any()   # "Đoạn thẳng"
+
+
+def test_triangle_angle_values_sit_outside_with_a_leader():
+    from airgeo.ui.render import draw_angles
+    tri = {"kind": "triangle", "pts": [(300, 500), (700, 500), (300, 200)], "raw": []}   # vuông A, ~37° B, ~53° C
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_angles(frame, tri)
+    inside = np.zeros((720, 1280), np.uint8)
+    cv2.fillPoly(inside, [np.array(tri["pts"], np.int32)], 1)
+    ys, xs = np.nonzero(frame.any(axis=2) & (inside == 0))
+    assert (xs > 740).any()                                                          # viên góc B ngoài hình
+    assert (ys > 520).any() and (xs < 280).any()                                     # viên góc A (90°) ngoài hình
+    assert frame[503:508, 710:714].any()                         # đường chỉ đi qua đỉnh B ra ngoài theo phân giác ngoài
+
+
+def test_rect_angles_are_only_square_marks():
+    from airgeo.ui.render import draw_angles
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_angles(frame, {"kind": "rect", "pts": [(400, 300), (800, 300), (800, 500), (400, 500)], "raw": []})
+    ys, xs = np.nonzero(frame.any(axis=2))
+    assert len(xs) and xs.min() >= 398 and xs.max() <= 802 and ys.min() >= 298 and ys.max() <= 502
+
+
+def test_vertex_letters_can_be_hidden():
+    from airgeo.ui.render import draw_selection
+    tri = {"kind": "triangle", "pts": [(300.0, 500.0), (700.0, 500.0), (300.0, 200.0)]}
+    a, b = np.zeros((720, 1280, 3), np.uint8), np.zeros((720, 1280, 3), np.uint8)
+    draw_selection(a, tri)
+    draw_selection(b, tri, letters=False)
+    assert a[505:525, 270:295].any() and not b[505:525, 270:295].any()    # chữ A cạnh đỉnh (300, 500)
+
+
+def test_cursor_is_big_and_filled_while_pinching():
+    frame = np.zeros((200, 200, 3), np.uint8)
+    draw_hand(frame, None, FrameResult((100, 100), (100, 100), False, False), show_skeleton=False)
+    assert frame[100, 114].any() and not frame[100, 100].any()           # vòng 14 px, rỗng
+    draw_hand(frame, None, FrameResult((100, 100), (100, 100), True, False), show_skeleton=False)
+    assert frame[100, 100].any()                                         # đang chụm: tô đặc
+
+
+def test_height_label_sits_inside_the_triangle():
+    from airgeo.ui.render import draw_height
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_height(frame, [(300.0, 500.0), (600.0, 500.0), (600.0, 100.0)])   # đường cao CB trùng cạnh BC
+    assert frame[280:320, 570:596].any() and not frame[280:320, 605:640].any()   # "h" bên trong, nhãn BC bên ngoài
