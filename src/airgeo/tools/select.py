@@ -6,6 +6,8 @@ Cột nút "Tinh:" ở mép phải: bấm nút nào thì mới hiện số đo �
 Tay cầm xoay (chấm ở góc trên phải khung bao hình đang chọn, trừ hình tròn): áp 2 ngón vào rồi kéo vòng quanh
 hình thì hình xoay quanh tâm; cạnh gần trục lệch <= SNAP_DEG thì hít thẳng ngang / dọc.
 
+Kéo hình vào thùng rác ở góc dưới phải (hiện ra khi đang kéo) rồi nhả -> xóa hình; Undo trả hình về chỗ cũ.
+
 Cả lần kéo / xoay là 1 bước Undo (begin() 1 lần lúc bắt đầu). Rung tay nhỏ hơn ngưỡng chỉ là chọn.
 """
 import math
@@ -17,16 +19,19 @@ MEASURES = {"line": ["sides"], "triangle": ["sides", "angles", "perimeter", "are
             "rect": ["sides", "angles", "perimeter", "area"], "circle": ["radius", "perimeter", "area"]}
 MENU_W, MENU_H, MENU_GAP = 150, 44, 8
 HANDLE_OFFSET = 32
+TRASH_R, TRASH_INSET = 70, 90     # bán kính vùng thả / tâm cách 2 mép dưới, phải
 
 
 class SelectTool:
-    def __init__(self, config, width=1280):
+    def __init__(self, config, width=1280, height=720):
         self.hit_radius = config.hit_radius
         self.label_radius = config.label_radius
         self.drag_threshold = config.drag_threshold
         self.menu_x = width - MENU_W - 10
         self.menu_y = config.toolbar_height + 40          # chừa chỗ chữ "Tinh:"
         self.top = config.toolbar_height
+        self.trash = (width - TRASH_INSET, height - TRASH_INSET)
+        self.over_trash = False     # đang kéo hình, con trỏ trong thùng rác (nhả là xóa)
         self.rotation = None        # đang xoay: {"pivot", "a0", "pts0", "kind", "applied", "pos"}
         self.selected = None        # id hình đang chọn
         self.show = set()           # số đo đang hiện của hình đang chọn
@@ -117,15 +122,22 @@ class SelectTool:
             else:
                 board.translate(self.selected, ev.pos[0] - self._last[0], ev.pos[1] - self._last[1])
             self._last = ev.pos
+            self.over_trash = not self.rotation and math.dist(ev.pos, self.trash) <= TRASH_R
             shape = board.get(self.selected)       # None nếu U gỡ mất hình giữa lúc kéo
             self.blocked = shape is not None and board.collides(shape, self.selected) is not None
         elif ev.kind == "up":
             if self._clear_at is not None:
                 self.selected, self.show = None, set()
-            if self.blocked:
+            if self.over_trash:
+                board.undo(self._snap)   # hình về chỗ cũ rồi mới xóa: Undo trả hình về đúng chỗ trước khi kéo
+                board.remove(self.selected)
+                self.selected, self.show = None, set()
+                ctl.notify("Đã xóa hình", ev.t)
+            elif self.blocked:
                 board.undo(self._snap)   # gỡ đúng lần kéo này: hình về chỗ cũ, không để lại bước Undo
                 ctl.notify("Không thả được: đè lên hình khác", ev.t)
             self._grab, self._dragging, self._clear_at, self.blocked = None, False, None, False
+            self.over_trash = False
             self.rotation = None
 
     def _rotate(self, board, pos):
@@ -141,4 +153,4 @@ class SelectTool:
         if self.blocked:
             ctl.board.undo(self._snap)   # đổi công cụ giữa lúc kéo đè: cũng bật về
         self.selected, self._grab, self._dragging, self._clear_at, self.blocked = None, None, False, None, False
-        self.show, self.rotation = set(), None
+        self.show, self.rotation, self.over_trash = set(), None, False

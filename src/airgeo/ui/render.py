@@ -222,6 +222,29 @@ def draw_rotation_handle(img, shape, tool):
     cv2.circle(img, ip(tip), 3, SELECT_COLOR, -1, cv2.LINE_AA)
 
 
+def draw_trash(img, center, hot):
+    """Thùng rác ở góc dưới phải khi đang kéo hình; con trỏ vào vùng thả thì nền đỏ."""
+    from airgeo.tools.select import TRASH_R
+    cx, cy = ip(center)
+    x0, y0 = max(cx - TRASH_R, 0), max(cy - TRASH_R, 0)
+    roi = img[y0:cy + TRASH_R + 1, x0:cx + TRASH_R + 1]
+    disk = roi.copy()
+    cv2.circle(disk, (cx - x0, cy - y0), TRASH_R, (0, 0, 190) if hot else (0, 0, 0), -1, cv2.LINE_AA)
+    roi[:] = cv2.addWeighted(roi, 0.3, disk, 0.7, 0)
+    edge = (255, 255, 255) if hot else ERASE_COLOR
+    cv2.circle(img, (cx, cy), TRASH_R, edge, 3 if hot else 2, cv2.LINE_AA)
+    # thùng: nắp + quai, thân hình thang, 3 vạch
+    ox, oy = cx, cy - 14
+    cv2.line(img, (ox - 22, oy - 16), (ox + 22, oy - 16), edge, 3, cv2.LINE_AA)
+    cv2.rectangle(img, (ox - 7, oy - 22), (ox + 7, oy - 16), edge, 2, cv2.LINE_AA)
+    body = np.array([(ox - 17, oy - 10), (ox + 17, oy - 10), (ox + 13, oy + 22), (ox - 13, oy + 22)], np.int32)
+    cv2.polylines(img, [body], True, edge, 3, cv2.LINE_AA)
+    for dx in (-6, 0, 6):
+        cv2.line(img, (ox + dx, oy - 4), (ox + dx, oy + 16), edge, 2, cv2.LINE_AA)
+    w, _ = text_size(["Xóa"], 18, True)
+    put_text(img, ["Xóa"], (cx - w // 2, cy + 18), 18, bold=True)
+
+
 def draw_tool_overlay(img, ctl):
     """Hình đang chọn (công cụ Chọn) hoặc hình dưới con trỏ sắp bị xóa (công cụ Xóa)."""
     tool = ctl.tools[ctl.tool]
@@ -244,6 +267,8 @@ def draw_tool_overlay(img, ctl):
             draw_height(img, shape["pts"])
         draw_formulas(img, shape, tool, ctl.board.scale, ctl.board.unit)
         draw_rotation_handle(img, shape, tool)
+        if tool._dragging and not tool.rotation:
+            draw_trash(img, tool.trash, tool.over_trash)
     else:
         draw_shape(img, shape, ERASE_COLOR, 6)
 

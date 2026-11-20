@@ -24,7 +24,7 @@ class Controller:
         self.toolbar = Toolbar(width, config)
         self.panel = EditPanel(config, width, height)
         self.bounds = (0, config.toolbar_height, width, height)   # vùng vẽ, dưới thanh nút
-        self.tools = {"draw": DrawTool(), "select": SelectTool(config, width), "erase": EraseTool(config)}
+        self.tools = {"draw": DrawTool(), "select": SelectTool(config, width, height), "erase": EraseTool(config)}
         self.tool = "draw"
         self.menu = RadialMenu(width, height, config.toolbar_height, config.confirm_window)
         self.poses = PoseTrigger()  # tư thế tay giữ yên -> lệnh (xem gesture/pose.py)

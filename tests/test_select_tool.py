@@ -237,3 +237,56 @@ def test_rotation_into_neighbour_snaps_back_and_circle_has_no_handle(press):
     _rotate_drag(c, 90)                                   # dài 200 dựng dọc, chạm hình tròn bên dưới
     assert c.board.get(1)["pts"] == RECT["pts"] and "đè lên" in c.message
     assert c.tools["select"].handle(c.board.get(2)) is None
+
+
+def _drag_to(c, pts, t0=3.0):
+    for i, p in enumerate(pts):
+        c.dispatch(E("down" if i == 0 else "move", p, t0 + i * 0.03))
+
+
+def test_drag_into_trash_corner_deletes_and_undo_puts_it_back(stroke):
+    c = _ctl_with_line(stroke)
+    before = list(c.board.shapes[0]["pts"])
+    sel = c.tools["select"]
+    tx, ty = sel.trash
+    assert tx > 1000 and ty > 550                                 # góc dưới phải
+    _drag_to(c, [(200, 300), (220, 320), (600, 500), (tx, ty)])
+    assert sel.over_trash
+    c.dispatch(E("up", (tx, ty), 4.0))
+    assert c.board.shapes == [] and sel.selected is None and c.message == "Đã xóa hình" and not sel.over_trash
+    c.do("undo")
+    assert c.board.shapes[0]["pts"] == before                     # về chỗ cũ trước khi kéo
+
+
+def test_drop_outside_trash_keeps_shape(stroke):
+    c = _ctl_with_line(stroke)
+    sel = c.tools["select"]
+    tx, ty = sel.trash
+    _drag_to(c, [(200, 300), (220, 320), (tx, ty), (600, 500)])
+    assert not sel.over_trash
+    c.dispatch(E("up", (600, 500), 4.0))
+    assert len(c.board.shapes) == 1
+
+
+def test_trash_ignores_rotation(stroke):
+    c = _ctl_with_line(stroke)
+    sel = c.tools["select"]
+    c.dispatch(E("down", (200, 300), 2.0)); c.dispatch(E("up", (200, 300), 2.1))
+    h = sel.handle(c.board.shapes[0])
+    _drag_to(c, [h, (h[0] + 30, h[1] + 30), sel.trash])
+    assert not sel.over_trash
+    c.dispatch(E("up", sel.trash, 4.0))
+    assert len(c.board.shapes) == 1
+
+
+def test_trash_is_drawn_only_while_dragging(stroke):
+    import numpy as np
+    from airgeo.ui.render import draw_tool_overlay
+    c = _ctl_with_line(stroke)
+    tx, ty = c.tools["select"].trash
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    assert not frame[int(ty) - 60:int(ty) + 60, int(tx) - 60:int(tx) + 60].any()
+    _drag_to(c, [(200, 300), (220, 320), (tx, ty)])
+    draw_tool_overlay(frame, c)
+    assert frame[int(ty) - 60:int(ty) + 60, int(tx) - 60:int(tx) + 60].any()
