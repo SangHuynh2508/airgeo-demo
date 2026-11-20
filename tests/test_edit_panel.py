@@ -167,3 +167,23 @@ def test_panel_fits_frame(W, H):
     _, p, _ = _setup(W=W, H=H)
     for x0, y0, x1, y1 in [p.rect, p.pad_rect, *p.button_rects.values(), *p.field_rects]:
         assert 0 <= x0 < x1 <= W and 0 <= y0 < y1 <= H
+
+
+def test_jitter_in_pad_keeps_prefilled_value():
+    _, p, ctl = _setup(scale=50.0)
+    _write(p, ctl, [DOT])                         # chụm chập chờn: không xóa số điền sẵn
+    assert p.values["AB"] == "6"
+    _write(p, ctl, [TWO])                         # chữ số thật đầu tiên thay số điền sẵn
+    assert p.values["AB"] == "2"
+
+
+def test_keyboard_digits_then_written_dot_and_digit():
+    _, p, ctl = _setup()
+    p.type("7")
+    _write(p, ctl, [DOT, FIVE])
+    assert p.values["AB"] == "7.5"
+    p.focus_field("BC")
+    for ch in "7.":
+        p.type(ch)
+    _write(p, ctl, [FIVE, DOT])
+    assert p.values["BC"] == "7.5"

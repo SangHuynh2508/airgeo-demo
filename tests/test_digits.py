@@ -55,3 +55,21 @@ def test_reader_decimal_point_and_delete():
     assert r.text == "7."
     r.clear()
     assert r.text == ""
+
+
+def test_digits_written_close_together_stay_separate():
+    for first, d in ((FOUR, "4"), (ONE, "1"), (SEVEN, "7")):
+        r = DigitReader(220)                     # ô viết cao 220 px (khung 720p), chữ số cao 150 px
+        _write(r, first, 100)
+        x1 = max(x for g in r.groups for s in g["strokes"] for x, _ in s)
+        _write(r, ONE, x1 + 15 - 0.30 * H)       # số 1 cách chữ trước chỉ 15 px
+        assert r.text == d + "1", d
+
+
+def test_dot_after_typed_digits_counts_as_decimal_point():
+    r = DigitReader(H)
+    r.add(_at(DOT[0], 100), prefix="7")          # "7" gõ bàn phím rồi viết chấm
+    assert r.text == "."
+    r = DigitReader(H)
+    r.add(_at(DOT[0], 100), prefix="7.")         # đã có dấu chấm: bỏ
+    assert r.text == ""

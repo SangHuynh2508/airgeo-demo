@@ -98,18 +98,17 @@ class EditPanel:
     def _pen(self, ev):
         """Nét viết trong ô viết: down bắt đầu, move nối thêm, up nhận dạng lại cả dãy."""
         if ev.kind == "down":
-            if self.fresh:
-                self.base, self.fresh = "", False
-            elif not self.reader.groups:
-                self.base = self.values[self.focus]
+            if not self.reader.groups:      # chữ số viết đầu tiên thay số điền sẵn, sau khi gõ thì viết tiếp vào
+                self.base = "" if self.fresh else self.values[self.focus]
             self.cur = [ev.pos]
         elif ev.kind == "move":
             self.cur.append(ev.pos)
         elif ev.kind == "up":
-            self.reader.add(self.cur)
+            self.reader.add(self.cur, self.base)
             self.cur = None
-            self.values[self.focus] = (self.base + self.reader.text)[:MAX_LEN]
-            self.error = ""
+            if self.reader.groups:          # chụm chập chờn bị bỏ thì ô giữ nguyên
+                self.values[self.focus] = (self.base + self.reader.text)[:MAX_LEN]
+                self.fresh, self.error = False, ""
 
     def press(self, name):
         if name == "back":

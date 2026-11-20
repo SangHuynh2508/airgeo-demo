@@ -130,8 +130,9 @@ DOT = 0.12      # nét có khung bao chéo < DOT x chiều cao chữ là chấm
 
 
 class DigitReader:
-    """Gom nét thành chữ số theo vị trí ngang: nét mới có tâm nằm trong khoảng ngang của chữ số cuối (nới thêm 10%
-    chiều cao) thì thuộc chữ số đó (vd. nét sổ của số 4), không thì là chữ số mới bên phải."""
+    """Gom nét thành chữ số theo vị trí ngang: nét mới có tâm nằm trong khoảng ngang của chữ số cuối (nới 10% chiều
+    cao bên trái, 3% bên phải để 2 chữ số viết sát vẫn tách) thì thuộc chữ số đó (vd. nét sổ của số 4), không thì là
+    chữ số mới bên phải."""
 
     def __init__(self, height):
         self.h = height             # chiều cao ô viết (px)
@@ -141,17 +142,18 @@ class DigitReader:
     def text(self):
         return "".join(g["ch"] for g in self.groups)
 
-    def add(self, stroke):
+    def add(self, stroke, prefix=""):
+        """prefix: phần số đã có trước (gõ bàn phím) để quyết định chấm có phải dấu thập phân."""
         xs, ys = [p[0] for p in stroke], [p[1] for p in stroke]
         x0, x1 = min(xs), max(xs)
         if math.hypot(x1 - x0, max(ys) - min(ys)) < DOT * self.h:
             # chấm: chỉ là dấu thập phân khi đã có chữ số và chưa có dấu (chụm chập chờn trước đó thì bỏ)
-            if self.groups and "." not in self.text:
+            typed = prefix + self.text
+            if typed and "." not in typed:
                 self.groups.append({"strokes": [stroke], "x0": x0, "x1": x1, "ch": "."})
             return
         last = self.groups[-1] if self.groups and self.groups[-1]["ch"] != "." else None
-        m = 0.1 * self.h
-        if last and last["x0"] - m <= (x0 + x1) / 2 <= last["x1"] + m:
+        if last and last["x0"] - 0.1 * self.h <= (x0 + x1) / 2 <= last["x1"] + 0.03 * self.h:
             last["strokes"].append(stroke)
             last["x0"], last["x1"] = min(last["x0"], x0), max(last["x1"], x1)
         else:
