@@ -114,7 +114,7 @@ def run(config: Config):
                 draw_tool_overlay(frame, ctl)
             if compare:
                 draw_trails(frame, raw_trail, filt_trail)
-            draw_hand(frame, hand, res, show_skeleton and tech, pf.pinch.gesture)
+            draw_hand(frame, hand, res, show_skeleton and tech, pf.pinch.gesture, None if fitts else ctl.tool)
             if fitts is None:
                 draw_toolbar(frame, ctl, t, res.fpt)
                 if ctl.menu.is_open:

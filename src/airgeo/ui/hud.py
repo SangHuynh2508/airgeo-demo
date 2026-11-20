@@ -55,13 +55,14 @@ def draw_help(img):
 
 
 LEGEND = ["3 ngón: Vẽ", "Xòe tay: Chọn  ·  giữ lâu: Menu", "Ngón trỏ + út: Xóa", "Xòe tay rồi nắm lại: Hoàn tác"]
+LEGEND_SIZE = 24      # đọc được từ cuối lớp
 
 
 def draw_legend(img):
     """Gợi ý tư thế tay (góc dưới trái, ngay trên viên công cụ; phím H ẩn / hiện)."""
-    _, h = text_size(LEGEND, 18)
+    _, h = text_size(LEGEND, LEGEND_SIZE)
     lift = text_size(["Vẽ"], CHIP_SIZE, True)[1] + 30          # chừa viên "Vẽ · cm" (ui/toolbar.py)
-    _label_chip(img, LEGEND, (20, img.shape[0] - h - 14 - lift), 18)
+    _label_chip(img, LEGEND, (20, img.shape[0] - h - 14 - lift), LEGEND_SIZE)
 
 
 def draw_status(img, msg):

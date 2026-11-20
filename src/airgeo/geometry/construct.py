@@ -31,9 +31,10 @@ def _unit(a, b):
     return ((b[0] - a[0]) / d, (b[1] - a[1]) / d) if d else (1.0, 0.0)
 
 
-def label_anchors(shape, offset=45):
+def label_anchors(shape, offset=60):
     """Vị trí nhãn bấm được của từng ô: giữa cạnh, đẩy ra ngoài hình; hình tròn: giữa bán kính.
-    offset > label_radius (25) + hit_radius (15) để vùng bấm nhãn không đè lên vùng cầm hình."""
+    offset > label_radius (25) + hit_radius (15) để vùng bấm nhãn không đè lên vùng cầm hình;
+    60 (không phải 45) để nhãn cạnh chữ cỡ 28 không đè lên chính cạnh đó khi cạnh dọc / xiên."""
     kind = shape["kind"]
     if kind == "circle":
         (cx, cy), r = shape["center"], shape["radius"]

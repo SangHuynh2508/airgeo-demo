@@ -1,3 +1,4 @@
+import math
 from helpers import place_line
 import cv2
 import numpy as np
@@ -385,7 +386,7 @@ def test_vertex_letters_can_be_hidden():
 
 def test_cursor_is_big_and_filled_while_pinching():
     frame = np.zeros((200, 200, 3), np.uint8)
-    draw_hand(frame, None, FrameResult((100, 100), (100, 100), False, False), show_skeleton=False)
+    draw_hand(frame, None, FrameResult((100, 100), (100, 100), False, False), False, "two_finger")
     assert frame[100, 114].any() and not frame[100, 100].any()           # vòng 14 px, rỗng
     draw_hand(frame, None, FrameResult((100, 100), (100, 100), True, False), show_skeleton=False)
     assert frame[100, 100].any()                                         # đang chụm: tô đặc
@@ -407,3 +408,111 @@ def test_angle_chip_pushed_back_on_screen_moves_off_the_vertex():
         x, y = angle_chip_center(v, b, hw, hh, 1280, 720)
         assert not (x - hw - 4 <= v[0] <= x + hw + 4 and y - hh - 4 <= v[1] <= y + hh + 4), v
         assert hw <= x <= 1280 - hw and hh <= y <= 720 - hh
+
+
+def _spy_text(monkeypatch):
+    """Ghi lại (chữ, cỡ, đậm) mọi lần vẽ chữ Pillow trong render.py (nhãn cạnh, viên góc, bảng công thức, gợi ý)."""
+    import airgeo.ui.render as render
+    calls, real = [], render.put_text
+
+    def spy(img, lines, org, size=20, color=(255, 255, 255), bold=False):
+        calls.append((" ".join(lines), size, bold))
+        return real(img, lines, org, size, color, bold)
+    monkeypatch.setattr(render, "put_text", spy)
+    return calls
+
+
+def test_numbers_and_formulas_are_big_enough_for_the_back_row(monkeypatch):
+    from airgeo.ui.hud import draw_legend
+    from airgeo.ui.render import draw_tool_overlay
+    c, sel = _selected(TRI_345, {"angles", "perimeter", "area"})
+    c.board.fit(1, c.fit_box)
+    s = c.board.get(1)
+    c.board.scale = math.dist(*s["pts"][:2]) / 3                         # sau khi phóng to: AB = 3 cm
+    calls = _spy_text(monkeypatch)
+    draw_tool_overlay(np.zeros((720, 1280, 3), np.uint8), c)
+    size = {s: (sz, b) for s, sz, b in calls}
+    assert size["3 cm"][0] >= 28                                         # nhãn cạnh
+    assert min(sz for s, sz, _ in calls if s.startswith("góc")) >= 28    # viên góc
+    assert size["P = AB + BC + CA"][0] >= 26                                # dòng công thức
+    assert size["= 12 cm"] == (34, True)                               # dòng kết quả: to nhất, đậm
+    calls.clear()
+    draw_legend(np.zeros((720, 1280, 3), np.uint8))
+    assert calls[-1][1] >= 24                                            # bảng gợi ý
+
+
+def test_big_formula_panel_stays_in_frame_and_off_the_fitted_shape():
+    from airgeo.geometry.construct import label_anchors
+    from airgeo.ui.render import draw_formulas
+    for toolbar in (False, True):
+        c, sel = _selected(TRI_345, {"angles", "perimeter", "area"})
+        if toolbar:
+            c.do("bar")
+        c.board.fit(1, c.fit_box)
+        s = c.board.get(1)
+        x0, y0, x1, y1 = draw_formulas(np.zeros((720, 1280, 3), np.uint8), s, sel, 100.0, "cm")
+        assert x0 >= 0 and y1 <= 720 - 40 and x1 <= 1280
+        right = max(p[0] for p in s["pts"] + list(label_anchors(s).values())) + 45   # cả nửa nhãn cạnh
+        assert x0 > right, (toolbar, x0, right)
+
+
+def test_cursor_shape_tells_which_gesture_presses():
+    def cursor(gesture="pinch", tool="draw", pinched=False):
+        f = np.zeros((200, 200, 3), np.uint8)
+        draw_hand(f, None, FrameResult((100, 100), (100, 100), pinched, False), False, gesture, tool)
+        return f
+    pinch = cursor()
+    assert pinch[100, 114].any() and pinch[100, 100].any() and not pinch[100, 107].any()   # vòng mảnh + chấm tâm
+    two = cursor("two_finger", "select")
+    assert two[100, 114].any() and two[100, 108].any() and not two[100, 100].any()      # vòng đôi, tâm rỗng
+    erase = cursor("two_finger", "erase")
+    assert tuple(erase[100, 114]) == (0, 0, 255)                                         # công cụ Xóa: vòng đỏ
+    for args in (("pinch", "draw"), ("two_finger", "erase"), ("two_finger", None)):      # None: màn bài đo K
+        pressed = cursor(*args, pinched=True)
+        assert tuple(pressed[100, 100]) == (0, 255, 255)                                 # đang bấm: vàng đặc
+
+
+def test_strokes_get_a_dark_halo_on_a_bright_wall():
+    from airgeo.ui.render import draw_selection
+    white = np.full((200, 400, 3), 255, np.uint8)
+    line = {"kind": "line", "pts": [(50, 100), (350, 100)], "id": 1}
+    out = draw_canvas(white, [line], [(50, 160), (350, 160)])
+    assert out[100, 200].max() > 200 and out[160, 200].min() > 200      # nét vẫn sáng
+    assert out[104, 200].max() < 80 and out[163, 200].max() < 80        # viền tối sát nét (không có: 153)
+    sel = np.full((200, 400, 3), 255, np.uint8)
+    draw_selection(sel, line)
+    assert sel[105, 120].max() < 80                                     # viền hình đang chọn cũng có quầng tối
+
+
+def test_ok_is_primary_with_thick_border_not_a_selected_fill():
+    from airgeo.ui.edit_panel import draw_edit_panel
+    from airgeo.ui.render import BUTTON_ON
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append({"kind": "triangle", "pts": [(490.0, 450.0), (790.0, 450.0), (640.0, 250.0)],
+                           "raw": [], "id": 1, "locked": False})
+    c.panel.open(c.board.shapes[0], "AB", c.board)
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_edit_panel(frame, c.panel, "cm", None)
+    x0, y0, x1, y1 = (int(v) for v in c.panel.button_rects["ok"])
+    cx0, cy0, _, _ = (int(v) for v in c.panel.button_rects["cancel"])
+    assert tuple(frame[y0 + 6, x0 + 6]) != BUTTON_ON                    # không tô nền "đang bật"
+    assert frame[(y0 + y1) // 2, x0 + 2].min() > 150                    # viền dày
+    assert frame[cy0 + 20, cx0 + 2].max() < 100                         # nút thường: viền mảnh
+
+
+def test_big_side_chips_do_not_sit_on_their_edge():
+    from airgeo.geometry.construct import label_anchors
+    from airgeo.ui.render import CHIP_H, CHIP_W, VALUE_SIZE, chip_labels
+    from airgeo.ui.text import text_size
+    c, _ = _selected(TRI_345, set())
+    c.board.fit(1, c.fit_box)
+    s = c.board.get(1)
+    scale = math.dist(*s["pts"][:2]) / 3
+    labels, pts = chip_labels(s, scale, "cm"), s["pts"]
+    for i, (f, (x, y)) in enumerate(label_anchors(s).items()):
+        hw = max(CHIP_W, text_size([labels[f]], VALUE_SIZE)[0] + 20) / 2 + 6     # + nửa nét viền và quầng
+        hh = CHIP_H / 2 + 6
+        a, b = pts[i], pts[(i + 1) % 3]
+        for k in range(101):
+            px, py = a[0] + (b[0] - a[0]) * k / 100, a[1] + (b[1] - a[1]) * k / 100
+            assert not (abs(px - x) < hw and abs(py - y) < hh), (f, (px, py))

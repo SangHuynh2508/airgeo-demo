@@ -53,6 +53,6 @@ def draw_edit_panel(img, panel, unit, cursor):
         _stroke(img, panel.cur)
 
     for b, r in panel.button_rects.items():
-        draw_button(img, r, BUTTON_LABELS[b], on=b == "ok", hover=hover == ("button", b), scale=22 / 36)
+        draw_button(img, r, BUTTON_LABELS[b], hover=hover == ("button", b), scale=22 / 36, primary=b == "ok")
     if panel.error:
         put_text(img, [panel.error], panel.error_pos, 20, ERROR_COLOR, bold=True)

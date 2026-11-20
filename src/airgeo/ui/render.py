@@ -23,7 +23,6 @@ FREE_COLOR = (255, 255, 255)
 SHAPE_COLOR = (0, 220, 255)
 RAW_COLOR = (160, 160, 160)
 FILT_COLOR = (0, 255, 0)
-PINCH_COLOR = (0, 0, 255)
 HOLD_COLOR = (0, 165, 255)       # cam: đang giữ nét, frame bị bỏ qua
 SKELETON_COLOR = (255, 0, 255)
 ANGLE_COLOR = (180, 255, 180)
@@ -49,14 +48,16 @@ def fit_size(labels, width, size):
     return size
 
 
-def draw_button(img, rect, label, on=False, hover=False, scale=0.6):
+def draw_button(img, rect, label, on=False, hover=False, scale=0.6, primary=False):
     """Nút chữ nhật dùng chung (dải trạng thái, cột Tính, bàn phím số, nhãn cạnh). Nền tối riêng để chữ đọc được
     trên mọi nền camera (tường trắng), nền xanh khi đang bật, viền vàng dày khi con trỏ ở trên.
+    primary: nút chính (OK) – viền trắng dày, không tô nền xanh (nền xanh là ô / nút đang chọn).
     Chữ Pillow (có dấu), cỡ theo scale, tự thu nhỏ cho vừa nút."""
     x0, y0, x1, y1 = (int(round(v)) for v in rect)
     roi = img[max(y0, 0):max(y1, 0), max(x0, 0):max(x1, 0)]
     roi[:] = BUTTON_ON if on else (roi * 0.3).astype(np.uint8)
-    cv2.rectangle(img, (x0, y0), (x1, y1), BUTTON_HOVER if hover else BUTTON_EDGE, 3 if hover else 1)
+    edge = BUTTON_HOVER if hover else (255, 255, 255) if primary else BUTTON_EDGE
+    cv2.rectangle(img, (x0, y0), (x1, y1), edge, 5 if primary else 3 if hover else 1)
     if label:
         size = fit_size([label], x1 - x0, round(scale * 36))
         w, h = text_size([label], size)
@@ -74,7 +75,16 @@ def draw_shape(img, s, color=None, thickness=4):
     cv2.polylines(img, [pts], kind in ("triangle", "rect"), color, thickness, cv2.LINE_AA)
 
 
-CHIP_W, CHIP_H = 56, 32               # nút nhãn cạnh (AB, dài, r...) quanh label_anchors; rộng thêm theo chữ
+HALO = 6       # quầng đen dày hơn nét chừng này px (mỗi bên 3): nét sáng không bạc màu trên tường trắng
+
+
+def draw_shape_halo(img, s, color, thickness):
+    """Nét vẽ thẳng lên khung hình (viền hình đang chọn / sắp xóa) có quầng tối bên dưới."""
+    draw_shape(img, s, (0, 0, 0), thickness + HALO)
+    draw_shape(img, s, color, thickness)
+
+
+CHIP_W, CHIP_H = 56, 42               # nút nhãn cạnh (AB, dài, r...) quanh label_anchors; rộng thêm theo chữ
 
 
 def chip_labels(s, scale, unit):
@@ -83,7 +93,7 @@ def chip_labels(s, scale, unit):
             for f, v in current_lengths(s).items()}
 
 
-VALUE_SIZE = 20                       # cỡ chữ số đo trên hình (cạnh, góc, bán kính)
+VALUE_SIZE = 28                       # cỡ chữ số đo trên hình (cạnh, góc, bán kính): đọc được từ cuối lớp
 ANGLE_R, RIGHT_MARK = 26, 16          # bán kính cung góc / cạnh ô vuông góc vuông (px)
 LEADER = 34                           # khoảng từ đỉnh tới mép viên số đo góc (đường chỉ)
 
@@ -166,17 +176,22 @@ DIM = 0.45     # hình không được chọn: còn thấy để tránh vẽ đ�
 
 def draw_canvas(frame, shapes, cur, active=None):
     """Vẽ các nét lên lớp canvas đen rồi trộn lên khung hình. Số đo chỉ vẽ khi được yêu cầu
-    (cột "Tinh:" của công cụ Chọn, xem draw_tool_overlay). Có active (id hình đang chọn) thì hình khác vẽ mờ."""
-    canvas = np.zeros_like(frame)
+    (cột "Tinh:" của công cụ Chọn, xem draw_tool_overlay). Có active (id hình đang chọn) thì hình khác vẽ mờ.
+    Dưới mỗi nét, video được tô đen dày hơn HALO px: phép cộng không làm nét bạc màu trên tường sáng."""
+    canvas, frame = np.zeros_like(frame), frame.copy()
     if not any(s.get("id") == active for s in shapes):
         active = None       # hình đang chọn vừa bị Undo / xóa: không làm mờ cả bảng
     for s in shapes:
         if active is None or s.get("id") == active:
-            draw_shape(canvas, s)
+            color, th = None, 4
         else:
-            draw_shape(canvas, s, tuple(round(c * DIM) for c in (FREE_COLOR if s["kind"] == "free" else SHAPE_COLOR)), 2)
+            color, th = tuple(round(c * DIM) for c in (FREE_COLOR if s["kind"] == "free" else SHAPE_COLOR)), 2
+        draw_shape(frame, s, (0, 0, 0), th + HALO)
+        draw_shape(canvas, s, color, th)
     if cur and len(cur) >= 2:
-        cv2.polylines(canvas, [np.array([ip(p) for p in cur], dtype=np.int32)], False, FREE_COLOR, 3, cv2.LINE_AA)
+        line = [np.array([ip(p) for p in cur], dtype=np.int32)]
+        cv2.polylines(frame, line, False, (0, 0, 0), 3 + HALO, cv2.LINE_AA)
+        cv2.polylines(canvas, line, False, FREE_COLOR, 3, cv2.LINE_AA)
     return cv2.addWeighted(frame, 0.6, canvas, 1, 0)
 
 
@@ -188,18 +203,29 @@ def draw_trails(img, raw_trail, filt_trail):
 
 
 CURSOR_R = 14
+PRESS_COLOR = (0, 255, 255)      # vàng: đang chụm / bấm (đỏ chỉ dành cho xóa)
 
 
-def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
+def draw_hand(img, hand, res, show_skeleton, gesture="pinch", tool=None):
+    """Con trỏ to cho học sinh nhìn từ xa, hình dạng cho biết cách bấm ở chỗ đó (gesture: cử chỉ đang chờ):
+    vòng mảnh + chấm tâm = chụm cái + trỏ (vẽ), vòng đôi = áp 2 ngón; công cụ Xóa vòng đỏ;
+    đang chụm / bấm tô đặc vàng. tool None: màn bài đo K."""
     if hand and show_skeleton:
         for a, b in CONNECTIONS:
             cv2.line(img, ip(hand["pts"][a]), ip(hand["pts"][b]), SKELETON_COLOR, 1, cv2.LINE_AA)
     if hand:
         cv2.circle(img, ip(hand["p4"]), 5, RAW_COLOR, -1)
         cv2.circle(img, ip(hand["p8"]), 5, RAW_COLOR, -1)
-    if res.fpt:                    # con trỏ to cho học sinh nhìn từ xa; tô đặc = đang chụm (đang vẽ / bấm)
-        cv2.circle(img, ip(res.fpt), CURSOR_R, PINCH_COLOR if res.pinched else FILT_COLOR,
-                   -1 if res.pinched else 3, cv2.LINE_AA)
+    if res.fpt:
+        c, color = ip(res.fpt), ERASE_COLOR if tool == "erase" else FILT_COLOR
+        if res.pinched:
+            cv2.circle(img, c, CURSOR_R, PRESS_COLOR, -1, cv2.LINE_AA)
+        elif gesture == "two_finger":
+            cv2.circle(img, c, CURSOR_R, color, 3, cv2.LINE_AA)
+            cv2.circle(img, c, CURSOR_R - 6, color, 2, cv2.LINE_AA)
+        else:
+            cv2.circle(img, c, CURSOR_R, color, 2, cv2.LINE_AA)
+            cv2.circle(img, c, 3, color, -1, cv2.LINE_AA)
     elif res.holding and hand:
         cv2.circle(img, ip(draw_point(hand, gesture)), CURSOR_R, HOLD_COLOR, 3, cv2.LINE_AA)
 
@@ -212,7 +238,7 @@ MEASURE_LABELS = {"angles": "Góc", "perimeter": "Chu vi", "area": "Diện tích
 def draw_selection(img, s, color=SELECT_COLOR, scale=None, unit="cm", letters=True):
     """Viền nổi bật hình đang chọn (đỏ khi đang kéo đè lên hình khác); tên đỉnh A, B, C (D) (ẩn khi viên góc đã
     ghi tên); hình tròn có đường bán kính; nhãn cạnh bấm được để sửa số đo, ghi số đo khi đã có tỉ lệ."""
-    draw_shape(img, s, color, 6)
+    draw_shape_halo(img, s, color, 6)
     if s["kind"] in ("triangle", "rect") and letters:
         pts = s["pts"]
         cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
@@ -225,8 +251,8 @@ def draw_selection(img, s, color=SELECT_COLOR, scale=None, unit="cm", letters=Tr
         cv2.circle(img, ip(c), 4, color, -1, cv2.LINE_AA)
     labels = chip_labels(s, scale, unit)
     for f, (x, y) in label_anchors(s).items():
-        w = max(CHIP_W, text_size([labels[f]], 20)[0] + 20) / 2
-        draw_button(img, (x - w, y - CHIP_H / 2, x + w, y + CHIP_H / 2), labels[f], scale=0.55)
+        w = max(CHIP_W, text_size([labels[f]], VALUE_SIZE)[0] + 20) / 2
+        draw_button(img, (x - w, y - CHIP_H / 2, x + w, y + CHIP_H / 2), labels[f], scale=VALUE_SIZE / 36)
 
 
 def draw_rotation_handle(img, shape, tool):
@@ -298,12 +324,12 @@ def draw_tool_overlay(img, ctl):
         if tool._dragging and not tool.rotation:
             draw_trash(img)
     else:
-        draw_shape(img, shape, ERASE_COLOR, 6)
+        draw_shape_halo(img, shape, ERASE_COLOR, 6)
 
 
 # Bảng công thức: tiêu đề vàng nhỏ, công thức trắng, thế số xám (phụ), kết quả đậm và lớn hơn (dòng cần đọc)
-FORMULA_STYLE = [(-2, (0, 220, 255), False), (0, (255, 255, 255), False), (0, (200, 200, 200), False),
-                 (2, (255, 255, 255), True)]     # (chênh cỡ chữ, màu BGR, đậm) cho từng dòng của 1 khối
+FORMULA_STYLE = [(-4, (0, 220, 255), False), (0, (255, 255, 255), False), (0, (200, 200, 200), False),
+                 (8, (255, 255, 255), True)]     # (chênh cỡ chữ, màu BGR, đậm) cho từng dòng của 1 khối
 PANEL_PAD, BLOCK_GAP = 10, 14
 
 
@@ -339,7 +365,7 @@ def _block_size(block, size):
 
 def draw_formulas(img, shape, tool, scale, unit):
     """Bảng công thức dưới cột "Tinh:", căn phải theo cột. Khung hình thấp không đủ chỗ thì đặt sang trái cột,
-    ngang đầu cột; chữ thu nhỏ tới 14 px. Trả về khung bảng (x0, y0, x1, y1), None nếu không có gì để vẽ."""
+    ngang đầu cột; chữ 26 px (kết quả 34 đậm, cho cuối lớp), thiếu chỗ thì thu nhỏ tới 14 px. Trả về khung bảng (x0, y0, x1, y1), None nếu không có gì để vẽ."""
     blocks = [b for b in (formula(shape, k, scale, unit) for k in ("perimeter", "area") if k in tool.show) if b]
     menu = tool.menu(shape)
     if not blocks or not menu:
@@ -349,8 +375,8 @@ def draw_formulas(img, shape, tool, scale, unit):
         return (max(MENU_W, max(w for w, _ in dims) + 2 * PANEL_PAD),
                 sum(h for _, h in dims) + BLOCK_GAP * (len(blocks) - 1) + 2 * PANEL_PAD)
 
-    def fit(top):                    # cỡ chữ lớn nhất (20 -> 14) vừa chiều cao còn lại từ top, None nếu không vừa
-        return next((sz for sz in range(20, 13, -2) if panel(sz)[1] <= img.shape[0] - 45 - top), None)
+    def fit(top):                    # cỡ chữ lớn nhất (26 -> 14) vừa chiều cao còn lại từ top, None nếu không vừa
+        return next((sz for sz in range(26, 13, -2) if panel(sz)[1] <= img.shape[0] - 45 - top), None)
 
     top, right = int(menu[-1][1][3]) + 16, tool.menu_x + MENU_W
     size = fit(top)
