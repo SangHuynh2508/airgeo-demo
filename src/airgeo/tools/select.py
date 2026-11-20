@@ -48,7 +48,6 @@ class SelectTool:
         self._dragging = False
         self._snap = None           # bản sao Undo của lần kéo hiện tại
         self._clear_at = None       # điểm chạm vào chỗ trống: nhả tại đây thì bỏ chọn
-        self.blocked = False        # hình đang kéo đè lên hình khác (tô đỏ; nhả lúc này thì bật về)
 
     def menu(self, shape):
         """[(số đo, (x0, y0, x1, y1))] – các nút trong cột "Tinh:" cho loại hình này."""
@@ -162,18 +161,14 @@ class SelectTool:
             if gap <= TRASH_R:
                 board.undo(self._snap)   # hình về chỗ cũ rồi mới xóa: Undo trả hình về đúng chỗ trước khi kéo
                 board.remove(self.selected)
-                self.selected, self.show, self._grab, self._dragging, self.blocked = None, set(), None, False, False
+                self.selected, self.show, self._grab, self._dragging = None, set(), None, False
                 self.near_trash = False
                 ctl.notify("Đã xóa hình", ev.t)
                 return
-            self.blocked = shape is not None and board.collides(shape, self.selected) is not None
         elif ev.kind == "up":
             if self._clear_at is not None:
                 self.selected, self.show = None, set()
-            if self.blocked:
-                board.undo(self._snap)   # gỡ đúng lần kéo này: hình về chỗ cũ, không để lại bước Undo
-                ctl.notify("Không thả được: đè lên hình khác", ev.t)
-            self._grab, self._dragging, self._clear_at, self.blocked = None, False, None, False
+            self._grab, self._dragging, self._clear_at = None, False, None
             self.rotation, self.near_trash = None, False
 
     def _clamp(self, shape, dx, dy):
@@ -194,7 +189,5 @@ class SelectTool:
         r["applied"], r["pos"] = target, pos
 
     def end(self, ctl):
-        if self.blocked:
-            ctl.board.undo(self._snap)   # đổi công cụ giữa lúc kéo đè: cũng bật về
-        self.selected, self._grab, self._dragging, self._clear_at, self.blocked = None, None, False, None, False
+        self.selected, self._grab, self._dragging, self._clear_at = None, None, False, None
         self.show, self.rotation, self.near_trash = set(), None, False

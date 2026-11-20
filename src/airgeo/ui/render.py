@@ -186,23 +186,14 @@ def draw_angles(img, s, top=0):
     return [r for r in chips if r]
 
 
-DIM = 0.45     # hình không được chọn: còn thấy để tránh vẽ đè, nhưng lùi lại sau hình đang thao tác
-
-
-def draw_canvas(frame, shapes, cur, active=None):
+def draw_canvas(frame, shapes, cur):
     """Vẽ các nét lên lớp canvas đen rồi trộn lên khung hình. Số đo chỉ vẽ khi được yêu cầu
-    (cột "Tinh:" của công cụ Chọn, xem draw_tool_overlay). Có active (id hình đang chọn) thì hình khác vẽ mờ.
+    (cột "Tinh:" của công cụ Chọn, xem draw_tool_overlay).
     Dưới mỗi nét, video được tô đen dày hơn HALO px: phép cộng không làm nét bạc màu trên tường sáng."""
     canvas, frame = np.zeros_like(frame), frame.copy()
-    if not any(s.get("id") == active for s in shapes):
-        active = None       # hình đang chọn vừa bị Undo / xóa: không làm mờ cả bảng
     for s in shapes:
-        if active is None or s.get("id") == active:
-            color, th = None, 4
-        else:
-            color, th = tuple(round(c * DIM) for c in (FREE_COLOR if s["kind"] == "free" else SHAPE_COLOR)), 2
-        draw_shape(frame, s, (0, 0, 0), th + HALO)
-        draw_shape(canvas, s, color, th)
+        draw_shape(frame, s, (0, 0, 0), 4 + HALO)
+        draw_shape(canvas, s, None, 4)
     if cur and len(cur) >= 2:
         line = [np.array([ip(p) for p in cur], dtype=np.int32)]
         cv2.polylines(frame, line, False, (0, 0, 0), 3 + HALO, cv2.LINE_AA)
@@ -333,7 +324,7 @@ def draw_tool_overlay(img, ctl):
         return
     if ctl.tool == "select":
         angles = "angles" in tool.show
-        draw_selection(img, shape, ERASE_COLOR if tool.blocked or tool.near_trash else SELECT_COLOR, ctl.board.scale,
+        draw_selection(img, shape, ERASE_COLOR if tool.near_trash else SELECT_COLOR, ctl.board.scale,
                        ctl.board.unit, letters=False)
         # chu vi / diện tích nằm trong bảng công thức; khung viên góc giữ lại để tay cầm xoay không đè lên
         tool.avoid = draw_angles(img, shape, ctl.bounds[1]) if angles else []

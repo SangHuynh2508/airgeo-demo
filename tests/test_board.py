@@ -119,25 +119,11 @@ def test_cycle_unit():
     assert seen == ["dm", "m", "mm", "cm"]
 
 
-def test_shape_at_prefers_topmost_and_misses_far():
+def test_shape_at_hits_edge_or_inside_and_misses_far():
     b = Board()
-    b.add_stroke(line_raw(300))
-    b.shapes.append({"kind": "free", "pts": [(200, 250), (200, 300), (200, 350)],
-                      "raw": [(200, 250, 0.0), (200, 300, 0.0), (200, 350, 0.0)], "id": 2, "locked": False})                   # cắt đoạn ngang, nằm trên (vẽ thì bị chặn đè)
-    assert b.shape_at((200, 300), 15)["id"] == 2
-    assert b.shape_at((120, 310), 15)["id"] == 1
-    assert b.shape_at((600, 600), 15) is None
-
-
-def test_shape_at_inside_prefers_edge_then_smaller_shape():
-    b = Board()
-    small = {"kind": "circle", "pts": [], "center": (300.0, 300.0), "radius": 40.0, "raw": [], "id": 1, "locked": False}
-    big = {"kind": "rect", "pts": [(100.0, 100.0), (500.0, 100.0), (500.0, 500.0), (100.0, 500.0)], "raw": [],
-           "id": 2, "locked": False}
-    b.shapes += [small, big]                      # hình lớn vẽ sau, nằm trên
-    assert b.shape_at((300, 300), 15)["id"] == 1  # trong cả 2: hình nhỏ hơn
-    assert b.shape_at((200, 200), 15)["id"] == 2  # chỉ trong hình lớn
-    assert b.shape_at((345, 300), 15)["id"] == 1  # sát cạnh hình tròn
+    b.shapes.append({"kind": "rect", "pts": [(100.0, 100.0), (500.0, 100.0), (500.0, 500.0), (100.0, 500.0)], "id": 1})
+    assert b.shape_at((300, 300), 15)["id"] == 1  # giữa hình kín
+    assert b.shape_at((510, 300), 15)["id"] == 1  # sát cạnh, ngoài hình
     assert b.shape_at((600, 600), 15) is None
 
 

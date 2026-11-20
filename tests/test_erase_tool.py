@@ -4,39 +4,35 @@ from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerEvent as E
 
 
-def _two_lines(stroke):
+def _one_line(stroke):
     c = Controller(Config(), 1280, 720)
-    place_line(c, 300)     # ngang
-    # dọc, nằm trên, cắt đường ngang: vẽ thì bị chặn đè nên đặt thẳng vào bảng (hình cũ trước khi có kiểm tra đè)
-    c.board.shapes.append({"kind": "free", "pts": [(200, 250), (200, 300), (200, 350)],
-                      "raw": [(200, 250, 0.0), (200, 300, 0.0), (200, 350, 0.0)], "id": 2, "locked": False})
+    place_line(c, 300)
     c.do("erase")
     return c
 
 
-def test_hover_marks_topmost_shape_under_cursor(stroke):
-    c = _two_lines(stroke)
+def test_hover_marks_shape_under_cursor(stroke):
+    c = _one_line(stroke)
     c.dispatch(E("hover", (200, 300), 1.0))
-    assert c.tools["erase"].hovered == c.board.shapes[1]["id"]
+    assert c.tools["erase"].hovered == c.board.shapes[0]["id"]
     c.dispatch(E("hover", (600, 600), 1.1))
     assert c.tools["erase"].hovered is None
 
 
-def test_press_removes_only_shape_under_cursor(stroke, press):
-    c = _two_lines(stroke)
-    keep = c.board.shapes[1]["id"]
-    press(c, (120, 300))                               # chỉ trúng đường ngang
-    assert [s["id"] for s in c.board.shapes] == [keep]
+def test_press_removes_shape_under_cursor(stroke, press):
+    c = _one_line(stroke)
+    press(c, (120, 300))
+    assert c.board.shapes == []
 
 
 def test_undo_restores_erased_shape(stroke, press):
-    c = _two_lines(stroke)
+    c = _one_line(stroke)
     press(c, (120, 300))
     c.do("undo")
-    assert len(c.board.shapes) == 2
+    assert len(c.board.shapes) == 1
 
 
 def test_press_on_empty_area_does_nothing(stroke, press):
-    c = _two_lines(stroke)
+    c = _one_line(stroke)
     press(c, (900, 600))
-    assert len(c.board.shapes) == 2
+    assert len(c.board.shapes) == 1

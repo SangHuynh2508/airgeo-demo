@@ -102,8 +102,7 @@ def run(config: Config):
                 fps = 1 / dt if fps == 0 else 0.9 * fps + 0.1 / dt
             n_frames += 1
 
-            active = ctl.tools["select"].selected if ctl.tool == "select" else None
-            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur, active)
+            frame = draw_canvas(frame, board.shapes, ctl.tools["draw"].cur)
             if tech:
                 # HUD vẽ trước lớp công cụ: khung hình hẹp (640) thì bảng công thức / cột Tinh nằm đè lên HUD
                 draw_hud(frame, hud_lines(pf, board, ctl.tool, fps, compare,

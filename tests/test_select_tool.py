@@ -136,51 +136,6 @@ def test_stray_press_while_moving_to_menu_keeps_selection(stroke, press):
     assert sel.show == {"angles"}
 
 
-def test_drop_on_another_shape_snaps_back_and_leaves_no_undo_step(stroke):
-    c = Controller(Config(), 1280, 720)
-    place_line(c, 300)
-    c.do("draw")                                        # vẽ xong hình thứ nhất thì đã sang Chọn
-    place_line(c, 500)
-    c.do("select")
-    sel = c.tools["select"]
-    c.dispatch(E("down", (200, 500), 2.0))
-    c.dispatch(E("move", (200, 400), 2.03))
-    assert not sel.blocked
-    c.dispatch(E("move", (200, 302), 2.06))             # đè lên đoạn trên
-    assert sel.blocked
-    c.dispatch(E("up", (200, 302), 2.1))
-    assert c.board.shapes[1]["pts"][0] == (100, 500) and not sel.blocked and "đè lên" in c.message
-    c.do("undo")
-    assert len(c.board.shapes) == 1                     # Undo tiếp theo gỡ nét thứ 2, không phải lần kéo
-
-
-def _blocked_drag(stroke):
-    c = Controller(Config(), 1280, 720)
-    for i, y in enumerate((300, 500, 650)):
-        c.do("draw")
-        place_line(c, y)
-    c.do("select")
-    c.dispatch(E("down", (200, 500), 5.0))
-    c.dispatch(E("move", (200, 400), 5.03))
-    c.dispatch(E("move", (200, 302), 5.06))
-    assert c.tools["select"].blocked
-    return c
-
-
-def test_undo_key_mid_blocked_drag_does_not_undo_twice(stroke):
-    c = _blocked_drag(stroke)
-    c.key(ord("u"), 5.08)                                # U gỡ lần kéo rồi; nhả tay không được gỡ thêm
-    c.dispatch(E("up", (200, 302), 5.1))
-    assert [s["id"] for s in c.board.shapes] == [1, 2, 3]
-
-
-def test_clear_mid_blocked_drag_stays_cleared(stroke):
-    c = _blocked_drag(stroke)
-    c.key(ord("c"), 5.08)
-    c.dispatch(E("up", (200, 302), 5.1))
-    assert c.board.shapes == []
-
-
 def test_dragged_shape_undone_mid_drag_does_not_crash(stroke):
     c = Controller(Config(), 1280, 720)
     place_line(c, 300)
@@ -228,16 +183,10 @@ def test_rotation_handle_turns_shape_and_snaps_to_axis(press):
     assert c.board.get(1)["pts"] == RECT["pts"]          # cả lần xoay = 1 bước Undo
 
 
-def test_rotation_into_neighbour_snaps_back_and_circle_has_no_handle(press):
-    c = Controller(Config(), 1280, 720)
-    c.board.shapes.append(dict(RECT))
-    c.board.shapes.append({"kind": "circle", "pts": [], "center": (600.0, 530.0), "radius": 40.0, "raw": [],
-                           "id": 2, "locked": False})
-    c.do("select")
-    press(c, (600, 450))
-    _rotate_drag(c, 90)                                   # dài 200 dựng dọc, chạm hình tròn bên dưới
-    assert c.board.get(1)["pts"] == RECT["pts"] and "đè lên" in c.message
-    assert c.tools["select"].handle(c.board.get(2)) is None
+def test_circle_has_no_rotation_handle():
+    from airgeo.tools.select import SelectTool
+    tool = SelectTool(Config(), 1280, 720)
+    assert tool.handle({"kind": "circle", "pts": [], "center": (600.0, 530.0), "radius": 40.0}) is None
 
 
 def _drag_to(c, pts, t0=3.0):

@@ -9,8 +9,7 @@ import copy
 from collections import deque
 
 from airgeo.geometry.construct import fit
-from airgeo.geometry.hit import contains, distance_to_shape, overlaps
-from airgeo.geometry.measure import measure
+from airgeo.geometry.hit import contains, distance_to_shape
 from airgeo.geometry.recognize import recognize
 from airgeo.geometry.rotate import rotate_points, straighten
 from airgeo.geometry.shapes import tidy
@@ -92,10 +91,6 @@ class Board:
         if self.scale is not None:
             self.scale *= k
 
-    def collides(self, shape, ignore_id=None):
-        """Hình đầu tiên bị shape đè lên (bỏ qua hình ignore_id – chính nó khi kéo / sửa), None nếu không đè."""
-        return next((s for s in self.shapes if s["id"] != ignore_id and overlaps(shape, s)), None)
-
     def remove(self, sid):
         if self.get(sid) is not None:
             self.begin()
@@ -137,10 +132,5 @@ class Board:
         self.unit = UNITS[(UNITS.index(self.unit) + 1) % len(UNITS)]
 
     def shape_at(self, pos, radius):
-        """Ưu tiên hình vẽ sau cùng (nằm trên) có nét cách pos không quá radius px; không trúng nét
-        thì lấy hình kín nhỏ nhất chứa pos (hình lồng nhau: bấm giữa hình nhỏ cầm hình nhỏ)."""
-        for s in reversed(self.shapes):
-            if distance_to_shape(pos, s) <= radius:
-                return s
-        inside = [s for s in self.shapes if contains(pos, s)]
-        return min(inside, key=lambda s: measure(s)["area"], default=None)
+        """Hình có nét cách pos không quá radius px, hoặc hình kín chứa pos (bấm giữa hình cũng cầm được)."""
+        return next((s for s in self.shapes if distance_to_shape(pos, s) <= radius or contains(pos, s)), None)
