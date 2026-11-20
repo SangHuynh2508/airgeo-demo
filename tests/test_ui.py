@@ -43,6 +43,7 @@ def test_drawing_functions_paint_on_frame(make_hand):
     draw_hand(frame, hand, FrameResult(None, None, True, True), show_skeleton=False)
     draw_trails(frame, [(0, 0), (50, 50)], [(0, 0), (40, 40)])
     ctl = Controller(Config(), 1280, 720)
+    ctl.toolbar.visible = True
     draw_toolbar(frame, ctl, 0.0, (100, 35))
     draw_hud(frame, hud_lines(PinchFilter(Config()), ctl.board, "draw", 30, False, None), recording=True, top=70)
     draw_help(frame)
@@ -255,3 +256,15 @@ def test_rotation_handle_is_drawn_for_selected_rect():
     draw_tool_overlay(frame, c)
     hx, hy = sel.handle(c.board.get(1))
     assert frame[int(hy) - 3:int(hy) + 4, int(hx) - 3:int(hx) + 4].any()
+
+
+def test_hidden_toolbar_draws_only_a_small_tool_chip():
+    from airgeo.ui.toolbar import draw_toolbar
+    c = Controller(Config(), 1280, 720)
+    frame = np.full((720, 1280, 3), 200, np.uint8)
+    draw_toolbar(frame, c, 0.0, None)
+    assert (frame[30, 600] == 200).all()                        # giữa mép trên: không có dải tối
+    assert (frame[5:45, 10:120] < 100).any()                     # góc trên trái: viên "Vẽ · cm"
+    c.toolbar.visible = True
+    draw_toolbar(frame, c, 0.0, None)
+    assert (frame[30, 600] < 200).all()

@@ -2,7 +2,8 @@
 
 Chỉ bấm lúc BẮT ĐẦU chụm (sự kiện down), nên giữ chụm không bấm lặp.
 "Xoa het" phải bấm 2 lần trong confirm_window giây để tránh xóa nhầm.
-Giao diện chính là tư thế tay (gesture/pose.py); thanh này là dự phòng + cho biết trạng thái.
+Giao diện chính là tư thế tay (gesture/pose.py); thanh này là dự phòng nên mặc định ẩn (vùng vẽ lấn lên tận
+mép trên) – bật bằng mục "Hiện nút" trong menu tròn hoặc phím T.
 2 cụm: công cụ (Vẽ, Chọn, Xóa) bên trái | lệnh bên phải.
 """
 BUTTONS = ["draw", "select", "erase", "undo", "unit", "clear"]
@@ -12,7 +13,7 @@ GAP, SPLIT = 10, 40     # khe giữa các nút / thêm giữa 2 cụm
 class Toolbar:
     def __init__(self, width, config):
         self.height = config.toolbar_height
-        self.visible = True
+        self.visible = False
         self.confirm_window = config.confirm_window
         n = len(BUTTONS)
         w = (width - GAP * (n + 1) - SPLIT) / n   # chia đều chiều rộng: luôn vừa khung hình
@@ -21,9 +22,11 @@ class Toolbar:
         self._armed_until = float("-inf")
 
     def contains(self, pos):
-        return pos[1] < self.height
+        return self.visible and pos[1] < self.height
 
     def hit(self, pos):
+        if not self.visible:
+            return None
         for b, (x0, y0, x1, y1) in self.rects.items():
             if x0 <= pos[0] <= x1 and y0 <= pos[1] <= y1:
                 return b

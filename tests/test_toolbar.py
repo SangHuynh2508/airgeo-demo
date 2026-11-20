@@ -19,6 +19,7 @@ def test_buttons_fit_in_toolbar(width):
 
 def test_hit_and_contains():
     tb = Toolbar(1280, Config())
+    tb.visible = True
     assert tb.hit(center(tb.rects["undo"])) == "undo"
     assert tb.hit((5, 35)) is None                                  # khe giữa mép và nút đầu
     assert tb.contains((500, 59)) and not tb.contains((500, 60))
@@ -27,11 +28,13 @@ def test_hit_and_contains():
 
 def test_press_returns_action():
     tb = Toolbar(1280, Config())
+    tb.visible = True
     assert tb.press(center(tb.rects["undo"]), 0.0) == "undo"
 
 
 def test_clear_needs_second_press_within_window():
     tb = Toolbar(1280, Config())
+    tb.visible = True
     clear = center(tb.rects["clear"])
     assert tb.press(clear, 0.0) is None and tb.clear_armed(1.0)
     assert tb.press(clear, 1.5) == "clear" and not tb.clear_armed(1.6)
@@ -39,6 +42,7 @@ def test_clear_needs_second_press_within_window():
 
 def test_clear_confirmation_expires():
     tb = Toolbar(1280, Config())
+    tb.visible = True
     clear = center(tb.rects["clear"])
     tb.press(clear, 0.0)
     assert tb.press(clear, 2.5) is None                             # quá 2 s: chỉ bật xác nhận lại
@@ -47,6 +51,7 @@ def test_clear_confirmation_expires():
 
 def test_other_button_cancels_clear_confirmation():
     tb = Toolbar(1280, Config())
+    tb.visible = True
     tb.press(center(tb.rects["clear"]), 0.0)
     assert tb.press(center(tb.rects["undo"]), 0.5) == "undo"
     assert tb.press(center(tb.rects["clear"]), 1.0) is None

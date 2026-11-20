@@ -226,3 +226,22 @@ def test_scribble_is_deleted_with_message_and_shape_name_is_announced(stroke):
 def test_smart_is_gone():
     c = _ctl()
     assert not c.key(ord("s"), 0) and not hasattr(c.board, "smart")
+
+
+def test_toolbar_hidden_by_default_and_top_edge_belongs_to_canvas(stroke):
+    c = _ctl()
+    assert not c.toolbar.visible and c.gesture_for((300, 20)) == "pinch"
+    stroke(c, [(100 + 10 * i, 25) for i in range(16)])          # vẽ sát mép trên: không bị nút nuốt
+    assert len(c.board.shapes) == 1
+
+
+def test_toolbar_reopens_by_key_or_menu_item():
+    from airgeo.interaction.pointer import PointerEvent as E
+    c = _ctl()
+    assert c.key(ord("t"), 0) and c.toolbar.visible
+    c.key(ord("t"), 0)
+    c.menu.open((640, 400), 0.0)
+    pos = dict(c.menu.positions())["bar"]
+    c.dispatch(E("down", pos, 0.1))
+    c.dispatch(E("up", pos, 0.2))
+    assert c.toolbar.visible and not c.menu.is_open

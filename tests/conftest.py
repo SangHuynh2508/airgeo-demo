@@ -65,6 +65,7 @@ def press():
 def button():
     """Tâm của nút trên thanh công cụ."""
     def _button(ctl, name):
+        ctl.toolbar.visible = True          # dải nút mặc định ẩn
         x0, y0, x1, y1 = ctl.toolbar.rects[name]
         return ((x0 + x1) / 2, (y0 + y1) / 2)
     return _button
