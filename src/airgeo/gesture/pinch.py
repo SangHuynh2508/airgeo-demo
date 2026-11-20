@@ -51,13 +51,6 @@ class PinchDetector:
             self.on_ratio += delta
             self.off_ratio += delta
 
-    @property
-    def closure(self):
-        """Mức khép ngón 0..1: 0 = mở quá ngưỡng nhả, 1 = tới ngưỡng bấm (vẽ vòng phản hồi quanh con trỏ)."""
-        if self.ratio is None:
-            return 0.0
-        return min(max((self.off_ratio - self.ratio) / (self.off_ratio - self.on_ratio), 0.0), 1.0)
-
     def toggle_mode(self):
         self.mode = "3d" if self.mode == "2d" else "2d"
 

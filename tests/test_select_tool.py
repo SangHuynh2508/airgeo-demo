@@ -1,6 +1,7 @@
 from helpers import place_line
 import math
 from airgeo.config import Config
+from airgeo.tools.select import TRASH_R
 from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerEvent as E
 
@@ -250,7 +251,9 @@ def test_drag_into_trash_corner_deletes_and_undo_puts_it_back(stroke):
     before = list(c.board.shapes[0]["pts"])
     sel = c.tools["select"]
     tx, ty = sel.trash
-    assert tx > 1000 and ty > 550                                 # góc dưới phải
+    # góc trên phải, dưới dải nút: đưa tay lên thì cả bàn tay vẫn trong khung hình (đưa xuống góc dưới thì
+    # cổ tay ra khỏi khung, MediaPipe mất tay)
+    assert tx > 1000 and Config().toolbar_height <= ty - TRASH_R and ty + TRASH_R <= 720 * 0.4
     _drag_to(c, [(200, 300), (220, 320), (600, 500), (tx, ty)])
     assert sel.over_trash
     c.dispatch(E("up", (tx, ty), 4.0))
@@ -319,3 +322,13 @@ def test_rotation_handle_stays_below_visible_toolbar():
     tri = {"kind": "triangle", "pts": [(310.0, 300.0), (810.0, 300.0), (310.0, 90.0)]}   # góc trên phải trống
     hx, hy = c.tools["select"].handle(tri)
     assert hy - 14 > c.toolbar.height
+
+
+def test_title_and_measure_column_hidden_while_dragging(stroke):
+    import numpy as np
+    from airgeo.ui.render import draw_tool_overlay
+    c = _ctl_with_line(stroke)
+    _drag_to(c, [(200, 300), (220, 320), (600, 500)])
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(frame, c)
+    assert not frame[70, 1250].any()                              # chỗ tên hình (cột Tính) – thùng rác chiếm góc đó

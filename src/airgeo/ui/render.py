@@ -194,9 +194,6 @@ def draw_hand(img, hand, res, show_skeleton, gesture="pinch"):
     if res.fpt:                    # con trỏ to cho học sinh nhìn từ xa; tô đặc = đang chụm (đang vẽ / bấm)
         cv2.circle(img, ip(res.fpt), CURSOR_R, PINCH_COLOR if res.pinched else FILT_COLOR,
                    -1 if res.pinched else 3, cv2.LINE_AA)
-        if not res.pinched and res.closure > 0.05:    # vòng ngoài co dần khi ngón khép: sắp "ấn"
-            r = CURSOR_R * (1 + 1.2 * (1 - res.closure))
-            cv2.circle(img, ip(res.fpt), int(round(r)), FILT_COLOR, 2, cv2.LINE_AA)
     elif res.holding and hand:
         cv2.circle(img, ip(draw_point(hand, gesture)), CURSOR_R, HOLD_COLOR, 3, cv2.LINE_AA)
 
@@ -284,16 +281,18 @@ def draw_tool_overlay(img, ctl):
                        letters=not (angles and shape["kind"] == "triangle"))
         if angles:                                # chu vi / diện tích nằm trong bảng công thức
             draw_angles(img, shape)
-        name = shape_name(shape)                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
-        w, _ = text_size([name], 22, True)
-        _label_chip(img, [name], (tool.menu_x + MENU_W - w - 10, tool.menu_y - 40), 22, bold=True)
-        for k, rect in tool.menu(shape):
-            draw_button(img, rect, MEASURE_LABELS[k], on=k in tool.show)
+        dragging = tool._dragging and not tool.rotation
+        if not dragging:                          # đang kéo: thùng rác thế chỗ cột Tính
+            name = shape_name(shape)              # tên hình làm tiêu đề cột Tính, căn phải theo cột
+            w, _ = text_size([name], 22, True)
+            _label_chip(img, [name], (tool.menu_x + MENU_W - w - 10, tool.menu_y - 40), 22, bold=True)
+            for k, rect in tool.menu(shape):
+                draw_button(img, rect, MEASURE_LABELS[k], on=k in tool.show)
         if shape["kind"] == "triangle" and "area" in tool.show:
             draw_height(img, shape["pts"])
         draw_formulas(img, shape, tool, ctl.board.scale, ctl.board.unit)
         draw_rotation_handle(img, shape, tool)
-        if tool._dragging and not tool.rotation:
+        if dragging:
             draw_trash(img, tool.trash, tool.over_trash)
     else:
         draw_shape(img, shape, ERASE_COLOR, 6)

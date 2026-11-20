@@ -76,12 +76,3 @@ def test_gradual_opening_releases_quickly(make_hand):
     seq = [(0.35, 0.033), (0.42, 0.066), (0.50, 0.1), (0.55, 0.133), (0.60, 0.166), (0.62, 0.2)]
     out = [d.update(make_hand(ratio=r), t) for r, t in seq]
     assert out == [True, True, True, True, True, False]       # nhả sau ~0.07 s chứ không chờ 0.2 s
-
-
-def test_closure_goes_from_open_to_pinched(make_hand):
-    d = PinchDetector(0.30, 0.45)
-    for r, c in ((0.6, 0.0), (0.45, 0.0), (0.375, 0.5), (0.30, 1.0), (0.1, 1.0)):
-        d.update(make_hand(ratio=r), 0.0)
-        assert abs(d.closure - c) < 1e-9, r
-    d.update(None, 0.0)
-    assert d.closure == 0.0

@@ -6,7 +6,8 @@ Cột nút "Tinh:" ở mép phải: bấm nút nào thì mới hiện số đo �
 Tay cầm xoay (chấm ở góc trên phải khung bao hình đang chọn, trừ hình tròn): áp 2 ngón vào rồi kéo vòng quanh
 hình thì hình xoay quanh tâm; cạnh gần trục lệch <= SNAP_DEG thì hít thẳng ngang / dọc.
 
-Kéo hình vào thùng rác ở góc dưới phải (hiện ra khi đang kéo) rồi nhả -> xóa hình; Undo trả hình về chỗ cũ.
+Kéo hình vào thùng rác ở góc trên phải (hiện ra khi đang kéo, thế chỗ cột Tính) rồi nhả -> xóa hình; Undo trả
+hình về chỗ cũ. Không để ở góc dưới: đưa tay xuống thì cổ tay ra khỏi khung hình, MediaPipe mất tay.
 
 Cả lần kéo / xoay là 1 bước Undo (begin() 1 lần lúc bắt đầu). Rung tay nhỏ hơn ngưỡng chỉ là chọn.
 """
@@ -20,7 +21,7 @@ MEASURES = {"line": [], "triangle": ["angles", "perimeter", "area"],
             "rect": ["angles", "perimeter", "area"], "circle": ["perimeter", "area"]}
 MENU_W, MENU_H, MENU_GAP = 150, 44, 8
 HANDLE_OFFSET = 32
-TRASH_R, TRASH_INSET = 70, 90     # bán kính vùng thả / tâm cách 2 mép dưới, phải
+TRASH_R, TRASH_INSET = 70, 90     # bán kính vùng thả / tâm cách mép phải và cách mép dưới dải nút
 
 
 class SelectTool:
@@ -31,7 +32,7 @@ class SelectTool:
         self.menu_x = width - MENU_W - 10
         self.menu_y = config.toolbar_height + 40          # chừa chỗ chữ "Tinh:"
         self.top = 0                # mép trên vùng vẽ: 0 khi dải nút ẩn (mặc định), Controller cập nhật khi bật / tắt
-        self.trash = (width - TRASH_INSET, height - TRASH_INSET)
+        self.trash = (width - TRASH_INSET, config.toolbar_height + TRASH_INSET)
         self.over_trash = False     # đang kéo hình, con trỏ trong thùng rác (nhả là xóa)
         self.rotation = None        # đang xoay: {"pivot", "a0", "pts0", "kind", "applied", "pos"}
         self.selected = None        # id hình đang chọn

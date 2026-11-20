@@ -29,7 +29,6 @@ class FrameResult:
     fpt: tuple[float, float] | None   # điểm đã lọc = con trỏ
     pinched: bool
     holding: bool                     # đang chụm nhưng frame không tin được (xem gesture/pinch.py)
-    closure: float = 0.0              # mức khép ngón 0..1 (vòng phản hồi quanh con trỏ)
 
 
 DECAY = 0.15        # giây để con trỏ trượt từ điểm bấm về lại đầu ngón sau khi nhả
@@ -108,7 +107,7 @@ class PinchFilter:
             self.flt.reset()  # tránh điểm lọc bị "kéo" từ vị trí cũ khi tay xuất hiện lại
             self._hist.clear()
             self._pressing, self._offset, self._released, self._last_in = False, (0.0, 0.0), None, None
-        return FrameResult(raw, fpt, pinched, holding, det.closure)
+        return FrameResult(raw, fpt, pinched, holding)
 
     def _aim(self, t):
         """Điểm bấm lúc t - rewind (lấy điểm mới nhất không muộn hơn); lịch sử ngắn hơn thì lấy điểm cũ nhất."""

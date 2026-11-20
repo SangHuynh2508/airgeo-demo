@@ -127,12 +127,6 @@ def test_hand_lost_forgets_old_positions(make_hand):
     assert pf.step(make_hand(400, 300, ratio=0.1), 0.066).fpt == (400, 300)
 
 
-def test_frame_result_carries_closure(make_hand):
-    pf = _pf()
-    assert pf.step(make_hand(100, 200, ratio=0.6), 0.0).closure == 0.0
-    assert abs(pf.step(make_hand(100, 200, ratio=0.275), 0.033).closure - 0.5) < 1e-9
-
-
 def test_press_while_sweeping_does_not_pull_cursor_far_back(make_hand):
     pf = _pf()
     for i in range(10):                                              # quét ngang ~1000 px/s

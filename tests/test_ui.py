@@ -350,12 +350,3 @@ def test_angle_chip_pushed_back_on_screen_moves_off_the_vertex():
         x, y = angle_chip_center(v, b, hw, hh, 1280, 720)
         assert not (x - hw - 4 <= v[0] <= x + hw + 4 and y - hh - 4 <= v[1] <= y + hh + 4), v
         assert hw <= x <= 1280 - hw and hh <= y <= 720 - hh
-
-
-def test_cursor_ring_shrinks_as_fingers_close():
-    frame = np.zeros((200, 200, 3), np.uint8)
-    draw_hand(frame, None, FrameResult((100, 100), (100, 100), False, False, closure=0.5), show_skeleton=False)
-    assert frame[100, 121:125].any()                                 # vòng ngoài ~22 px
-    frame[:] = 0
-    draw_hand(frame, None, FrameResult((100, 100), (100, 100), False, False, closure=0.0), show_skeleton=False)
-    assert not frame[100, 118:135].any()                             # tay mở: chỉ con trỏ
