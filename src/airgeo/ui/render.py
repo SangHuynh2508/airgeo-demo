@@ -254,17 +254,17 @@ def draw_trash(img):
     roi[:] = cv2.addWeighted(roi, 0.25, disk, 0.75, 0)
     edge = (255, 255, 255)
     cv2.circle(img, (0, 0), TRASH_R, ERASE_COLOR, 3, cv2.LINE_AA)
-    cx, cy = 70, 105                       # dưới viên "Vẽ · cm" ở góc trên trái
-    # thùng: nắp + quai, thân hình thang, 3 vạch
-    ox, oy = cx, cy - 20
-    cv2.line(img, (ox - 22, oy - 16), (ox + 22, oy - 16), edge, 3, cv2.LINE_AA)
-    cv2.rectangle(img, (ox - 7, oy - 22), (ox + 7, oy - 16), edge, 2, cv2.LINE_AA)
-    body = np.array([(ox - 17, oy - 10), (ox + 17, oy - 10), (ox + 13, oy + 22), (ox - 13, oy + 22)], np.int32)
+    # biểu tượng thùng rác (nắp + quai, thân hình thang, 3 vạch), cỡ 0.8, dưới viên "Vẽ · cm"
+    ox, oy, k = 52, 82, 0.8
+
+    def q(dx, dy):
+        return int(round(ox + dx * k)), int(round(oy + dy * k))
+    cv2.line(img, q(-22, -16), q(22, -16), edge, 3, cv2.LINE_AA)
+    cv2.rectangle(img, q(-7, -22), q(7, -16), edge, 2, cv2.LINE_AA)
+    body = np.array([q(-17, -10), q(17, -10), q(13, 22), q(-13, 22)], np.int32)
     cv2.polylines(img, [body], True, edge, 3, cv2.LINE_AA)
     for dx in (-6, 0, 6):
-        cv2.line(img, (ox + dx, oy - 4), (ox + dx, oy + 16), edge, 2, cv2.LINE_AA)
-    w, _ = text_size(["Xóa"], 18, True)
-    put_text(img, ["Xóa"], (cx - w // 2, cy + 24), 18, bold=True)
+        cv2.line(img, q(dx, -4), q(dx, 16), edge, 2, cv2.LINE_AA)
 
 
 def draw_tool_overlay(img, ctl):

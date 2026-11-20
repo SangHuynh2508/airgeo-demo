@@ -21,7 +21,7 @@ MEASURES = {"line": [], "triangle": ["angles", "perimeter", "area"],
             "rect": ["angles", "perimeter", "area"], "circle": ["perimeter", "area"]}
 MENU_W, MENU_H, MENU_GAP = 150, 44, 8
 HANDLE_OFFSET = 32
-TRASH_R = 170                     # vùng xóa: 1/4 hình tròn bán kính chừng này px ở góc trên trái
+TRASH_R = 136                     # vùng xóa: 1/4 hình tròn bán kính chừng này px ở góc trên trái
 
 
 class SelectTool:
