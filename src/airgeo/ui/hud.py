@@ -54,12 +54,12 @@ def draw_help(img):
         text(img, s, (10, h - 32 + 20 * i), 0.5, (220, 220, 220))
 
 
-LEGEND = ["3 ngón: Vẽ", "Xòe tay: Chọn  ·  giữ lâu: Menu", "Ngón trỏ + út: Xóa", "Xòe tay rồi nắm lại: Hoàn tác"]
+LEGEND = ["Chụm cái + trỏ: vẽ", "Áp trỏ + giữa: bấm / kéo", "3 ngón: Vẽ", "Xòe tay: Chọn  ·  giữ lâu: Menu", "Ngón trỏ + út: Xóa", "Xòe tay rồi nắm lại: Hoàn tác"]
 LEGEND_SIZE = 24      # đọc được từ cuối lớp
 
 
 def draw_legend(img):
-    """Gợi ý tư thế tay (góc dưới trái, ngay trên viên công cụ; phím H ẩn / hiện)."""
+    """Gợi ý cử chỉ + tư thế tay (góc dưới trái, ngay trên viên công cụ; phím H / mục Gợi ý trong menu tròn)."""
     _, h = text_size(LEGEND, LEGEND_SIZE)
     lift = text_size(["Vẽ"], CHIP_SIZE, True)[1] + 30          # chừa viên "Vẽ · cm" (ui/toolbar.py)
     _label_chip(img, LEGEND, (20, img.shape[0] - h - 14 - lift), LEGEND_SIZE)

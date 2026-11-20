@@ -8,7 +8,7 @@ import math
 import cv2
 import numpy as np
 
-from airgeo.geometry.construct import FIELD_LABELS, current_lengths, label_anchors
+from airgeo.geometry.construct import FIELD_LABELS, current_lengths, label_anchors, label_edges
 from airgeo.geometry.formulas import formula, triangle_height
 from airgeo.geometry.measure import measure
 from airgeo.geometry.rotate import edge_angle
@@ -52,16 +52,17 @@ def draw_button(img, rect, label, on=False, hover=False, scale=0.6, primary=Fals
     """Nút chữ nhật dùng chung (dải trạng thái, cột Tính, bàn phím số, nhãn cạnh). Nền tối riêng để chữ đọc được
     trên mọi nền camera (tường trắng), nền xanh khi đang bật, viền vàng dày khi con trỏ ở trên.
     primary: nút chính (OK) – viền trắng dày, không tô nền xanh (nền xanh là ô / nút đang chọn).
-    Chữ Pillow (có dấu), cỡ theo scale, tự thu nhỏ cho vừa nút."""
+    Chữ Pillow (có dấu), cỡ theo scale, tự thu nhỏ cho vừa nút; label là list thì mỗi phần tử 1 dòng."""
     x0, y0, x1, y1 = (int(round(v)) for v in rect)
     roi = img[max(y0, 0):max(y1, 0), max(x0, 0):max(x1, 0)]
     roi[:] = BUTTON_ON if on else (roi * 0.3).astype(np.uint8)
     edge = BUTTON_HOVER if hover else (255, 255, 255) if primary else BUTTON_EDGE
     cv2.rectangle(img, (x0, y0), (x1, y1), edge, 5 if primary else 3 if hover else 1)
     if label:
-        size = fit_size([label], x1 - x0, round(scale * 36))
-        w, h = text_size([label], size)
-        put_text(img, [label], ((x0 + x1 - w) // 2, (y0 + y1 - h) // 2 + 2), size)
+        lines = label if isinstance(label, list) else [label]
+        size = fit_size(lines, x1 - x0, round(scale * 36))
+        w, h = text_size(lines, size)
+        put_text(img, lines, ((x0 + x1 - w) // 2, (y0 + y1 - h) // 2 + 2), size)
 
 
 def draw_shape(img, s, color=None, thickness=4):
@@ -87,13 +88,26 @@ def draw_shape_halo(img, s, color, thickness):
 CHIP_W, CHIP_H = 56, 42               # nút nhãn cạnh (AB, dài, r...) quanh label_anchors; rộng thêm theo chữ
 
 
-def chip_labels(s, scale, unit):
-    """Chữ trên nhãn cạnh: tên cạnh khi chưa nhập số đo, nhập rồi thì số đo ("9 cm") – không bao giờ px."""
-    return {f: FIELD_LABELS.get(f, f) if scale is None else fmt_length(v, scale, unit)
-            for f, v in current_lengths(s).items()}
-
-
 VALUE_SIZE = 28                       # cỡ chữ số đo trên hình (cạnh, góc, bán kính): đọc được từ cuối lớp
+
+
+def side_chips(s, scale, unit):
+    """Nhãn cạnh bấm được: {ô: (dòng chữ, tâm, (nửa rộng, nửa cao))} – render vẽ, công cụ Chọn bấm theo cùng khung.
+    Chưa nhập số đo: tên cạnh (AB, dài, r); nhập rồi: "AB = 3 cm" để học sinh nối số với công thức (không bao giờ px).
+    Cạnh dốc (nhãn nằm bên cạnh) xuống 2 dòng "AB =" / "3 cm": viên hẹp, hình sát lề trái / cột Tính vẫn đủ chỗ."""
+    edges, texts, half = label_edges(s), {}, {}
+    for f, v in current_lengths(s).items():
+        name = FIELD_LABELS.get(f, f)
+        if scale is None:
+            lines = [name]
+        else:
+            a, b = edges.get(f, ((0, 0), (1, 0)))         # hình tròn: bán kính vẽ ngang
+            steep = abs(b[1] - a[1]) > abs(b[0] - a[0])
+            lines = [f"{name} =", fmt_length(v, scale, unit)] if steep else [f"{name} = {fmt_length(v, scale, unit)}"]
+        w, h = text_size(lines, VALUE_SIZE)
+        texts[f], half[f] = lines, (max(CHIP_W, w + 20) / 2, max(CHIP_H, h + 4) / 2)
+    anchors = label_anchors(s, half=half)
+    return {f: (texts[f], anchors[f], half[f]) for f in texts}
 ANGLE_R, RIGHT_MARK = 26, 16          # bán kính cung góc / cạnh ô vuông góc vuông (px)
 LEADER = 34                           # khoảng từ đỉnh tới mép viên số đo góc (đường chỉ)
 
@@ -235,24 +249,32 @@ ERASE_COLOR = (0, 0, 255)        # đỏ: hình sắp bị xóa
 MEASURE_LABELS = {"angles": "Góc", "perimeter": "Chu vi", "area": "Diện tích"}
 
 
+def draw_letters(img, s, color, avoid=()):
+    """Tên đỉnh A, B, C (D) cách đỉnh 24 px ra phía ngoài (hình to nhỏ đều sát đỉnh); bỏ chữ nào bị viên số đo góc
+    (avoid: khung các viên) đè lên – viên đã ghi "góc A" thì vẫn đọc được tên đỉnh."""
+    if s["kind"] not in ("triangle", "rect"):
+        return
+    pts = s["pts"]
+    cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+    for name, (x, y) in zip("ABCD", pts):
+        d = math.hypot(x - cx, y - cy) or 1.0
+        lx, ly = x + (x - cx) / d * 24, y + (y - cy) / d * 24          # tâm chữ (chữ cao ~20 px)
+        if not any(x0 - 12 <= lx <= x1 + 12 and y0 - 12 <= ly <= y1 + 12 for x0, y0, x1, y1 in avoid):
+            text(img, name, ip((lx - 7, ly + 7)), 0.7, color)
+
+
 def draw_selection(img, s, color=SELECT_COLOR, scale=None, unit="cm", letters=True):
-    """Viền nổi bật hình đang chọn (đỏ khi đang kéo đè lên hình khác); tên đỉnh A, B, C (D) (ẩn khi viên góc đã
-    ghi tên); hình tròn có đường bán kính; nhãn cạnh bấm được để sửa số đo, ghi số đo khi đã có tỉ lệ."""
+    """Viền nổi bật hình đang chọn (đỏ khi sắp xóa / kéo đè lên hình khác); tên đỉnh (letters); hình tròn có đường
+    bán kính; nhãn cạnh bấm được để sửa số đo, ghi "AB = 3 cm" khi đã có tỉ lệ."""
     draw_shape_halo(img, s, color, 6)
-    if s["kind"] in ("triangle", "rect") and letters:
-        pts = s["pts"]
-        cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
-        for name, (x, y) in zip("ABCD", pts):      # cách đỉnh 24 px ra phía ngoài, hình to nhỏ đều sát đỉnh
-            d = math.hypot(x - cx, y - cy) or 1.0
-            text(img, name, ip((x + (x - cx) / d * 24 - 7, y + (y - cy) / d * 24 + 7)), 0.7, color)
-    elif s["kind"] == "circle":
+    if letters:
+        draw_letters(img, s, color)
+    if s["kind"] == "circle":
         c, r = s["center"], s["radius"]
         cv2.line(img, ip(c), ip((c[0] + r, c[1])), color, 2, cv2.LINE_AA)
         cv2.circle(img, ip(c), 4, color, -1, cv2.LINE_AA)
-    labels = chip_labels(s, scale, unit)
-    for f, (x, y) in label_anchors(s).items():
-        w = max(CHIP_W, text_size([labels[f]], VALUE_SIZE)[0] + 20) / 2
-        draw_button(img, (x - w, y - CHIP_H / 2, x + w, y + CHIP_H / 2), labels[f], scale=VALUE_SIZE / 36)
+    for lines, (x, y), (hw, hh) in side_chips(s, scale, unit).values():
+        draw_button(img, (x - hw, y - hh, x + hw, y + hh), lines, scale=VALUE_SIZE / 36)
 
 
 def draw_rotation_handle(img, shape, tool):
@@ -277,15 +299,17 @@ def draw_rotation_handle(img, shape, tool):
     cv2.circle(img, ip(tip), 4, SELECT_COLOR, -1, cv2.LINE_AA)
 
 
-def draw_trash(img):
-    """Vùng xóa ở góc trên trái (chỉ hiện khi đang kéo hình): kéo hình vào là xóa."""
+def draw_trash(img, near=False):
+    """Vùng xóa ở góc trên trái (chỉ hiện khi đang kéo hình): kéo hình vào là xóa. near: tay sắp vào – vùng to thêm
+    20 px, đỏ tươi hơn, viền trắng dày (vùng bấm vẫn là TRASH_R)."""
     from airgeo.tools.select import TRASH_R
-    roi = img[:TRASH_R + 1, :TRASH_R + 1]
+    r = TRASH_R + 20 if near else TRASH_R
+    roi = img[:r + 1, :r + 1]
     disk = roi.copy()
-    cv2.circle(disk, (0, 0), TRASH_R, (0, 0, 170), -1, cv2.LINE_AA)
+    cv2.circle(disk, (0, 0), r, (0, 0, 230) if near else (0, 0, 170), -1, cv2.LINE_AA)
     roi[:] = cv2.addWeighted(roi, 0.25, disk, 0.75, 0)
     edge = (255, 255, 255)
-    cv2.circle(img, (0, 0), TRASH_R, ERASE_COLOR, 3, cv2.LINE_AA)
+    cv2.circle(img, (0, 0), r, edge if near else ERASE_COLOR, 5 if near else 3, cv2.LINE_AA)
     # biểu tượng thùng rác (nắp + quai, thân hình thang, 3 vạch), cỡ 0.8, giữa 1/4 hình tròn
     ox, oy, k = 54, 56, 0.8
 
@@ -308,21 +332,22 @@ def draw_tool_overlay(img, ctl):
         return
     if ctl.tool == "select":
         angles = "angles" in tool.show
-        draw_selection(img, shape, ERASE_COLOR if tool.blocked else SELECT_COLOR, ctl.board.scale, ctl.board.unit,
-                       letters=not (angles and shape["kind"] == "triangle"))
+        draw_selection(img, shape, ERASE_COLOR if tool.blocked or tool.near_trash else SELECT_COLOR, ctl.board.scale,
+                       ctl.board.unit, letters=False)
         # chu vi / diện tích nằm trong bảng công thức; khung viên góc giữ lại để tay cầm xoay không đè lên
         tool.avoid = draw_angles(img, shape, ctl.bounds[1]) if angles else []
+        draw_letters(img, shape, SELECT_COLOR, tool.avoid)
         name = shape_name(shape)                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
         w, _ = text_size([name], 22, True)
         _label_chip(img, [name], (tool.menu_x + MENU_W - w - 10, tool.menu_y - 40), 22, bold=True)
         for k, rect in tool.menu(shape):
             draw_button(img, rect, MEASURE_LABELS[k], on=k in tool.show)
         if shape["kind"] == "triangle" and "area" in tool.show:
-            draw_height(img, shape["pts"])
+            draw_height(img, shape["pts"], ctl.board.scale, ctl.board.unit)
         draw_formulas(img, shape, tool, ctl.board.scale, ctl.board.unit)
         draw_rotation_handle(img, shape, tool)
         if tool._dragging and not tool.rotation:
-            draw_trash(img)
+            draw_trash(img, tool.near_trash)
     else:
         draw_shape_halo(img, shape, ERASE_COLOR, 6)
 
@@ -341,8 +366,9 @@ def dashed_line(img, p, q, color, dash=8):
         cv2.line(img, ip(a), ip(b), color, 2, cv2.LINE_AA)
 
 
-def draw_height(img, pts):
-    """Đường cao nét đứt từ C xuống AB; chân ngoài đoạn AB (tam giác tù) thì kéo dài AB bằng nét đứt."""
+def draw_height(img, pts, scale=None, unit="cm"):
+    """Đường cao nét đứt từ C xuống AB; chân ngoài đoạn AB (tam giác tù) thì kéo dài AB bằng nét đứt.
+    Viên "h = 4 cm" (chưa có tỉ lệ: "h"); tam giác vuông tại B / A thì đường cao chính là cạnh: "h = BC" / "h = CA"."""
     c, foot, h = triangle_height(pts)
     if h < 1:
         return
@@ -351,11 +377,15 @@ def draw_height(img, pts):
         dashed_line(img, min((a, b), key=lambda p: math.dist(p, foot)), foot, SELECT_COLOR)
     dashed_line(img, c, foot, SELECT_COLOR)
     cv2.circle(img, ip(foot), 4, SELECT_COLOR, -1)
-    # chữ h lệch vào phía trong tam giác: đường cao trùng cạnh (tam giác vuông) thì không đè nhãn cạnh ở ngoài
+    label = ("h = BC" if math.dist(foot, b) < 1 else "h = CA" if math.dist(foot, a) < 1
+             else "h" if scale is None else f"h = {fmt_length(h, scale, unit)}")
+    # viên nằm cạnh đường cao, lệch theo AB vào phía trong tam giác: đường cao trùng cạnh thì không đè nhãn cạnh
     m = ((c[0] + foot[0]) / 2, (c[1] + foot[1]) / 2)
     g = (sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3)
-    d = math.dist(m, g) or 1.0
-    text(img, "h", ip((m[0] + (g[0] - m[0]) / d * 16 - 5, m[1] + (g[1] - m[1]) / d * 16 + 6)), 0.6, SELECT_COLOR)
+    ux, uy = (b[0] - a[0]) / math.dist(a, b), (b[1] - a[1]) / math.dist(a, b)
+    side = 1 if (g[0] - m[0]) * ux + (g[1] - m[1]) * uy >= 0 else -1
+    reach = side * (text_size([label], VALUE_SIZE)[0] / 2 + 20)        # nửa viên (cả lề nền 10) + 10 px
+    _value(img, label, (m[0] + ux * reach, m[1] + uy * reach))
 
 
 def _block_size(block, size):
@@ -423,12 +453,13 @@ def draw_pose_progress(img, pos, progress):
 
 
 def draw_radial_menu(img, menu, board, t, cursor, bar_on=False):
-    """Menu tròn: 4 mục quanh tâm, mục dưới con trỏ viền vàng; Xóa hết đã bấm 1 lần nền đỏ.
+    """Menu tròn: 6 mục quanh tâm, mục dưới con trỏ viền vàng; Xóa hết đã bấm 1 lần nền đỏ.
     board, bar_on: để ghi đơn vị hiện tại và chữ Hiện / Ẩn của mục dải nút."""
     from airgeo.interaction.radial_menu import ITEM_R
     armed = menu.clear_armed(t)
     labels = {"unit": ["Đơn vị", board.unit], "bar": ["Ẩn nút" if bar_on else "Hiện", "" if bar_on else "nút"],
-              "clear": ["Chắc", "chưa?"] if armed else ["Xóa", "hết"], "close": ["Đóng"]}
+              "clear": ["Chắc", "chưa?"] if armed else ["Xóa", "hết"], "close": ["Đóng"],
+              "redo": ["Làm", "lại"], "help": ["Gợi ý"]}
     hover = menu.hit(cursor) if cursor is not None else None
     for a, p in menu.positions():
         cx, cy = ip(p)

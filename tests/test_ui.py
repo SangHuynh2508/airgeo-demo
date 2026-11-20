@@ -221,7 +221,9 @@ def test_toast_legend_progress_and_radial_menu_paint():
     assert not frame[:720 - 90].any()
     blank = np.zeros((720, 1280, 3), np.uint8)
     draw_legend(blank)
-    assert blank[540:715, 0:400].any() and not blank[:500].any()
+    assert blank[540:715, 0:400].any() and not blank[:400].any()
+    from airgeo.ui.hud import LEGEND
+    assert {"Chụm cái + trỏ: vẽ", "Áp trỏ + giữa: bấm / kéo"} <= set(LEGEND)    # 2 cử chỉ bấm cơ bản
     ring = np.zeros((720, 1280, 3), np.uint8)
     draw_pose_progress(ring, (640, 400), ("draw", 0.5))
     assert ring[400 - 40:400 + 40, 640 - 40:640 + 40].any()
@@ -337,13 +339,31 @@ def test_column_title_is_the_shape_name(press):
     assert frame[y0:sel.menu_y - 4, sel.menu_x + 100:sel.menu_x + 150].any()   # tên dài, căn phải theo cột
 
 
-def test_side_chips_show_names_until_measured_then_values():
-    from airgeo.ui.render import chip_labels
+def test_side_chips_show_names_until_measured_then_name_equals_value():
+    from airgeo.ui.render import side_chips
+
+    def lines(s, scale):
+        return {f: chip[0] for f, chip in side_chips(s, scale, "cm").items()}
     rect = {"kind": "rect", "pts": [(100.0, 100.0), (550.0, 100.0), (550.0, 400.0), (100.0, 400.0)]}
-    assert chip_labels(rect, None, "cm") == {"dai": "dài", "rong": "rộng"}
-    assert chip_labels(rect, 50.0, "cm") == {"dai": "9 cm", "rong": "6 cm"}
+    assert lines(rect, None) == {"dai": ["dài"], "rong": ["rộng"]}
+    # học sinh nối số trên hình với công thức; cạnh dốc (nhãn nằm cạnh bên) xuống 2 dòng cho viên hẹp
+    assert lines(rect, 50.0) == {"dai": ["dài = 9 cm"], "rong": ["rộng =", "6 cm"]}
     tri = {"kind": "triangle", "pts": [(0.0, 0.0), (300.0, 0.0), (0.0, 400.0)]}
-    assert chip_labels(tri, 100.0, "cm") == {"AB": "3 cm", "BC": "5 cm", "CA": "4 cm"}
+    assert lines(tri, 100.0) == {"AB": ["AB = 3 cm"], "BC": ["BC =", "5 cm"], "CA": ["CA =", "4 cm"]}
+    circle = {"kind": "circle", "pts": [], "center": (300.0, 300.0), "radius": 100.0}
+    assert lines(circle, 50.0) == {"r": ["r = 2 cm"]}
+    chips = side_chips(rect, 50.0, "cm")          # 2 cạnh bằng nhau: nhãn ở cạnh trên / trái, xa cột Tính và mép dưới
+    assert chips["dai"][1][1] < 100 and chips["rong"][1][0] < 100
+
+
+def test_whole_side_chip_face_opens_the_panel(press):
+    from airgeo.ui.render import side_chips
+    c, sel = _selected(TRI_345, set())
+    c.board.fit(1, c.fit_box)
+    c.board.scale = math.dist(*c.board.get(1)["pts"][:2]) / 3
+    _, (x, y), (hw, hh) = side_chips(c.board.get(1), c.board.scale, "cm")["AB"]
+    press(c, (x + hw - 6, y))                                   # mép viên "AB = 3 cm", xa tâm hơn 25 px
+    assert c.panel.is_open and c.panel.focus == "AB"
 
 
 def test_title_shown_for_line_without_menu():
@@ -384,6 +404,14 @@ def test_vertex_letters_can_be_hidden():
     assert a[505:525, 270:295].any() and not b[505:525, 270:295].any()    # chữ A cạnh đỉnh (300, 500)
 
 
+def test_vertex_letters_stay_with_angles_unless_a_chip_covers_them():
+    from airgeo.ui.render import draw_letters
+    tri = {"kind": "triangle", "pts": [(300.0, 500.0), (700.0, 500.0), (300.0, 200.0)]}
+    a = np.zeros((720, 1280, 3), np.uint8)
+    draw_letters(a, tri, (255, 255, 255), [(260, 500, 300, 530)])        # viên góc A đè chỗ chữ A
+    assert not a[505:525, 270:295].any() and a[505:525, 710:735].any()   # bỏ A, giữ B
+
+
 def test_cursor_is_big_and_filled_while_pinching():
     frame = np.zeros((200, 200, 3), np.uint8)
     draw_hand(frame, None, FrameResult((100, 100), (100, 100), False, False), False, "two_finger")
@@ -397,6 +425,18 @@ def test_height_label_sits_inside_the_triangle():
     frame = np.zeros((720, 1280, 3), np.uint8)
     draw_height(frame, [(300.0, 500.0), (600.0, 500.0), (600.0, 100.0)])   # đường cao CB trùng cạnh BC
     assert frame[280:320, 570:596].any() and not frame[280:320, 605:640].any()   # "h" bên trong, nhãn BC bên ngoài
+
+
+def test_height_chip_reads_its_value_or_names_the_side_it_lies_on(monkeypatch):
+    from airgeo.ui.render import VALUE_SIZE, draw_height
+    calls = _spy_text(monkeypatch)
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_height(frame, [(300.0, 500.0), (700.0, 500.0), (450.0, 200.0)], 100.0, "cm")
+    draw_height(frame, [(300.0, 500.0), (700.0, 500.0), (450.0, 200.0)], None, "cm")
+    draw_height(frame, [(300.0, 500.0), (600.0, 500.0), (600.0, 100.0)], 100.0, "cm")   # vuông tại B
+    draw_height(frame, [(300.0, 500.0), (600.0, 500.0), (300.0, 100.0)], None, "cm")    # vuông tại A
+    assert [(s, sz) for s, sz, _ in calls] == [("h = 3 cm", VALUE_SIZE), ("h", VALUE_SIZE), ("h = BC", VALUE_SIZE),
+                                               ("h = CA", VALUE_SIZE)]
 
 
 def test_angle_chip_pushed_back_on_screen_moves_off_the_vertex():
@@ -432,7 +472,8 @@ def test_numbers_and_formulas_are_big_enough_for_the_back_row(monkeypatch):
     calls = _spy_text(monkeypatch)
     draw_tool_overlay(np.zeros((720, 1280, 3), np.uint8), c)
     size = {s: (sz, b) for s, sz, b in calls}
-    assert size["3 cm"][0] >= 28                                         # nhãn cạnh
+    assert size["AB = 3 cm"][0] >= 28                                    # nhãn cạnh
+    assert size["h = BC"][0] >= 28                                       # đường cao (vuông tại B: trùng BC)
     assert min(sz for s, sz, _ in calls if s.startswith("góc")) >= 28    # viên góc
     assert size["P = AB + BC + CA"][0] >= 26                                # dòng công thức
     assert size["= 12 cm"] == (34, True)                               # dòng kết quả: to nhất, đậm
@@ -442,8 +483,7 @@ def test_numbers_and_formulas_are_big_enough_for_the_back_row(monkeypatch):
 
 
 def test_big_formula_panel_stays_in_frame_and_off_the_fitted_shape():
-    from airgeo.geometry.construct import label_anchors
-    from airgeo.ui.render import draw_formulas
+    from airgeo.ui.render import draw_formulas, side_chips
     for toolbar in (False, True):
         c, sel = _selected(TRI_345, {"angles", "perimeter", "area"})
         if toolbar:
@@ -452,7 +492,7 @@ def test_big_formula_panel_stays_in_frame_and_off_the_fitted_shape():
         s = c.board.get(1)
         x0, y0, x1, y1 = draw_formulas(np.zeros((720, 1280, 3), np.uint8), s, sel, 100.0, "cm")
         assert x0 >= 0 and y1 <= 720 - 40 and x1 <= 1280
-        right = max(p[0] for p in s["pts"] + list(label_anchors(s).values())) + 45   # cả nửa nhãn cạnh
+        right = max([p[0] for p in s["pts"]] + [x + hw for _, (x, _), (hw, _) in side_chips(s, 100.0, "cm").values()])
         assert x0 > right, (toolbar, x0, right)
 
 
@@ -501,18 +541,19 @@ def test_ok_is_primary_with_thick_border_not_a_selected_fill():
 
 
 def test_big_side_chips_do_not_sit_on_their_edge():
-    from airgeo.geometry.construct import label_anchors
-    from airgeo.ui.render import CHIP_H, CHIP_W, VALUE_SIZE, chip_labels
-    from airgeo.ui.text import text_size
-    c, _ = _selected(TRI_345, set())
-    c.board.fit(1, c.fit_box)
-    s = c.board.get(1)
-    scale = math.dist(*s["pts"][:2]) / 3
-    labels, pts = chip_labels(s, scale, "cm"), s["pts"]
-    for i, (f, (x, y)) in enumerate(label_anchors(s).items()):
-        hw = max(CHIP_W, text_size([labels[f]], VALUE_SIZE)[0] + 20) / 2 + 6     # + nửa nét viền và quầng
-        hh = CHIP_H / 2 + 6
-        a, b = pts[i], pts[(i + 1) % 3]
-        for k in range(101):
-            px, py = a[0] + (b[0] - a[0]) * k / 100, a[1] + (b[1] - a[1]) * k / 100
-            assert not (abs(px - x) < hw and abs(py - y) < hh), (f, (px, py))
+    from airgeo.geometry.construct import label_edges
+    from airgeo.ui.render import side_chips
+    wide_rect = {"kind": "rect", "pts": [(100.0, 100.0), (500.0, 100.0), (500.0, 300.0), (100.0, 300.0)]}
+    left_leg = {"kind": "triangle", "pts": [(100.0, 500.0), (500.0, 500.0), (100.0, 300.0)]}   # CA dọc sát lề trái
+    for shape in (TRI_345, wide_rect, left_leg):
+        c, _ = _selected(shape, set())
+        c.board.fit(1, c.fit_box)
+        s = c.board.get(1)
+        pts, edges = s["pts"], label_edges(s)
+        for f, (_, (x, y), (hw, hh)) in side_chips(s, math.dist(*pts[:2]) / 3, "cm").items():
+            assert 0 <= x - hw and x + hw <= 1280 and 0 <= y - hh and y + hh <= 720, (f, x, y)   # trong khung
+            hw, hh = hw + 6, hh + 6                                              # + nửa nét viền và quầng
+            a, b = edges[f]
+            for k in range(101):
+                px, py = a[0] + (b[0] - a[0]) * k / 100, a[1] + (b[1] - a[1]) * k / 100
+                assert not (abs(px - x) < hw and abs(py - y) < hh), (shape["kind"], f, (px, py))

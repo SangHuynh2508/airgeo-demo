@@ -31,10 +31,23 @@ def _unit(a, b):
     return ((b[0] - a[0]) / d, (b[1] - a[1]) / d) if d else (1.0, 0.0)
 
 
-def label_anchors(shape, offset=60):
+def label_edges(shape):
+    """{ô: (đầu, cuối) của cạnh mang nhãn}. Cạnh thứ i nối đỉnh i với i+1; hình chữ nhật mỗi ô có 2 cạnh bằng nhau –
+    lấy cạnh phía trên / trái (xa cột Tính bên phải và mép dưới, chỗ tay với thấp thì mất tay)."""
+    pts, kind = shape["pts"], shape["kind"]
+    n, out = len(pts), {}
+    for i, f in enumerate(FIELDS.get(kind, []) if kind != "circle" else []):
+        j = min((i, i + 2) if kind == "rect" else (i,), key=lambda j: sum(pts[j % n]) + sum(pts[(j + 1) % n]))
+        out[f] = pts[j % n], pts[(j + 1) % n]
+    return out
+
+
+def label_anchors(shape, offset=60, half=None):
     """Vị trí nhãn bấm được của từng ô: giữa cạnh, đẩy ra ngoài hình; hình tròn: giữa bán kính.
     offset > label_radius (25) + hit_radius (15) để vùng bấm nhãn không đè lên vùng cầm hình;
-    60 (không phải 45) để nhãn cạnh chữ cỡ 28 không đè lên chính cạnh đó khi cạnh dọc / xiên."""
+    60 (không phải 45) để nhãn cạnh chữ cỡ 28 không đè lên chính cạnh đó khi cạnh dọc / xiên.
+    half: {ô: (nửa rộng, nửa cao)} của viên nhãn – viên rộng ("AB = 3 cm") được đẩy xa thêm cho cả viên cách
+    cạnh >= 12 px."""
     kind = shape["kind"]
     if kind == "circle":
         (cx, cy), r = shape["center"], shape["radius"]
@@ -42,17 +55,17 @@ def label_anchors(shape, offset=60):
     if kind not in FIELDS:
         return {}
     pts = shape["pts"]
-    if kind == "line":
-        (ax, ay), (bx, by) = pts
-        ux, uy = _unit(pts[0], pts[1])
-        return {"d": ((ax + bx) / 2 - uy * offset, (ay + by) / 2 + ux * offset)}
     cx, cy = _centroid(pts)
     out = {}
-    for i, f in enumerate(FIELDS[kind]):
-        a, b = pts[i], pts[(i + 1) % len(pts)]
+    for f, (a, b) in label_edges(shape).items():
         mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
-        ux, uy = _unit((cx, cy), (mx, my))
-        out[f] = (mx + ux * offset, my + uy * offset)
+        ex, ey = _unit(a, b)
+        ux, uy = (-ey, ex) if kind == "line" else _unit((cx, cy), (mx, my))    # hướng đẩy nhãn ra ngoài
+        off = offset
+        if half:        # khoảng cách tới cạnh đo theo pháp tuyến (-ey, ex): khung viên chiếu lên pháp tuyến
+            hw, hh = half[f]
+            off = max(offset, (hw * abs(ey) + hh * abs(ex) + 12) / max(abs(ux * ey - uy * ex), 0.3))
+        out[f] = (mx + ux * off, my + uy * off)
     return out
 
 

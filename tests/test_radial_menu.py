@@ -36,3 +36,12 @@ def test_menu_expires_after_timeout():
     m.open((640, 400), 0.0)
     assert not m.expired(5.9) and m.expired(6.1)
     assert all(math.dist(p, m.center) > ITEM_R for _, p in m.positions())
+
+
+def test_redo_and_help_items_fit_without_touching():
+    m = RadialMenu(1280, 720, top=60)
+    m.open((640, 400), 0.0)
+    pos = dict(m.positions())
+    assert {"redo", "help"} <= set(pos) and m.press(pos["redo"], 1.0) == "redo"
+    ps = list(pos.values())
+    assert all(math.dist(p, q) > 2 * ITEM_R + 10 for i, p in enumerate(ps) for q in ps[i + 1:])

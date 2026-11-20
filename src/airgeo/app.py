@@ -12,7 +12,7 @@ import cv2
 from airgeo.config import Config
 from airgeo.gesture.digits import read_digit
 from airgeo.gesture.pose import classify
-from airgeo.interaction.controller import Controller
+from airgeo.interaction.controller import LEGEND_SECONDS, Controller
 from airgeo.interaction.fitts import FittsTask
 from airgeo.interaction.pointer import PointerEvent, PointerTracker
 from airgeo.pinch_filter import PinchFilter
@@ -48,6 +48,7 @@ def run(config: Config):
     last_hand = float("-inf")     # lúc cuối thấy tay: bảng gợi ý tư thế chỉ hiện khi giáo viên hạ tay
     fitts, fitts_saved = None, False  # bài đo bấm mục tiêu (phím K)
     shown = None                      # khung hình vừa hiện (giữ lại khi camera khựng)
+    helped = False                    # frame vừa rồi có vẽ bảng gợi ý / dòng trợ giúp (phím H: đang hiện thì ẩn)
 
     # Toàn màn hình (máy chiếu), giữ tỉ lệ khung hình camera; phím F bật / tắt
     cv2.namedWindow(WIN, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
@@ -122,10 +123,13 @@ def run(config: Config):
                 if ctl.panel.is_open:
                     draw_edit_panel(frame, ctl.panel, board.unit, res.fpt)
                 draw_pose_progress(frame, res.fpt, ctl.poses.progress)
+            helped = True
             if show_help and tech:
                 draw_help(frame)
-            elif show_help and t - last_hand > 1.5 and not ctl.board.shapes:
-                draw_legend(frame)      # có hình rồi thì ẩn để không che hình học sinh đang xem
+            elif t < ctl.legend_until or (show_help and t - last_hand > 1.5 and not ctl.board.shapes):
+                draw_legend(frame)      # có hình rồi thì ẩn để không che hình; mục Gợi ý / phím H bật lại vài giây
+            else:
+                helped = False
             if t < ctl.message_until:
                 draw_status(frame, ctl.message)
             elif t < status_until:
@@ -166,8 +170,9 @@ def run(config: Config):
                 pf.moving_avg.set_n(pf.moving_avg.n + 1)
             elif key == ord("m"):
                 compare = not compare
-            elif key == ord("h"):
-                show_help = not show_help
+            elif key == ord("h"):     # đang hiện thì ẩn; đang ẩn thì hiện (cả khi đã có hình, LEGEND_SECONDS giây)
+                show_help = not helped
+                ctl.legend_until = t + LEGEND_SECONDS if show_help else 0.0
             elif key == ord("d"):
                 tech = not tech
             elif key == ord("k"):

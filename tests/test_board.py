@@ -71,6 +71,32 @@ def test_apply_edit_is_one_undo_step_including_scale():
     assert b.scale is None and b.shapes[0]["pts"] == s["pts"]
 
 
+def test_redo_reapplies_undone_steps_and_new_action_clears_it():
+    b = Board()
+    assert b.redo() is False                          # chưa Undo gì: không có gì để làm lại
+    s = b.add_stroke(line_raw())
+    b.apply_edit(s["id"], dict(s, pts=[(0, 0), (1, 1)], locked=True), 50.0)
+    b.undo()
+    b.undo()
+    assert b.shapes == [] and b.redo() is True and b.shapes[0]["pts"] == s["pts"] and b.scale is None
+    assert b.redo() is True and b.scale == 50.0 and b.shapes[0]["locked"] is True
+    assert b.redo() is False
+    b.undo()
+    b.begin()                                         # thao tác mới: nhánh làm lại cũ bỏ đi
+    assert b.redo() is False
+
+
+def test_undo_only_cancels_without_leaving_a_redo_step():
+    b = Board()
+    s = b.add_stroke(line_raw())
+    pts = list(s["pts"])
+    snap = b.begin()                                  # bắt đầu kéo
+    b.translate(s["id"], 50, 0)
+    assert b.undo(snap) is True and b.shapes[0]["pts"] == pts
+    assert b.redo() is False                          # lần kéo bị hủy không được "làm lại"
+    b.undo()
+    assert b.shapes == [] and b.redo() is True and b.shapes[0]["pts"] == pts
+
 
 
 

@@ -7,13 +7,14 @@ Tay cầm xoay (chấm ở góc trên phải khung bao hình đang chọn, trừ
 hình thì hình xoay quanh tâm; cạnh gần trục lệch <= SNAP_DEG thì hít thẳng ngang / dọc.
 
 Kéo hình vào vùng xóa ở góc trên trái (hiện ra khi đang kéo) là xóa ngay, không cần nhả (nhả sát mép dễ mất tay);
-Undo trả hình về chỗ cũ. Không để ở góc dưới: đưa tay xuống thì cổ tay ra khỏi khung hình, MediaPipe mất tay.
+Undo trả hình về chỗ cũ. Tay tới gần (cách vùng < TRASH_WARN px) thì vùng to ra và hình tô đỏ để kịp rút tay.
+Hình kéo không ra khỏi vùng vẽ (khung bao kẹp trong 0..W, top..H); tay quay lại thì hình theo tay như lúc cầm. Không để ở góc dưới: đưa tay xuống thì cổ tay ra khỏi khung hình, MediaPipe mất tay.
 
 Cả lần kéo / xoay là 1 bước Undo (begin() 1 lần lúc bắt đầu). Rung tay nhỏ hơn ngưỡng chỉ là chọn.
 """
 import math
 
-from airgeo.geometry.construct import label_anchors
+from airgeo.geometry.hit import _bbox, contains, distance_to_shape
 from airgeo.geometry.rotate import SNAP_DEG, center, rotate_points, snap_delta
 
 # độ dài cạnh / bán kính luôn ghi trên nhãn cạnh (draw_selection) nên cột Tính chỉ còn góc, chu vi, diện tích
@@ -22,7 +23,9 @@ MEASURES = {"line": [], "triangle": ["angles", "perimeter", "area"],
 MENU_W, MENU_H, MENU_GAP = 150, 44, 8
 HANDLE_OFFSET = 32
 HANDLE_R, HANDLE_HIT = 20, 35     # bán kính vẽ / vùng bấm tay cầm xoay (px)
+HANDLE_NEAR = 110                 # tay cầm cách nét hình không quá chừng này px (góc khung bao trống xa hình thì bỏ)
 TRASH_R = 136                     # vùng xóa: 1/4 hình tròn bán kính chừng này px ở góc trên trái
+TRASH_WARN = 60                   # dải cảnh báo "sắp xóa" quanh vùng xóa
 
 
 class SelectTool:
@@ -32,8 +35,10 @@ class SelectTool:
         self.drag_threshold = config.drag_threshold
         self.menu_x = width - MENU_W - 10
         self.menu_y = config.toolbar_height + 40          # chừa chỗ chữ "Tinh:"
+        self.width, self.height = width, height
         self.top = 0                # mép trên vùng vẽ: 0 khi dải nút ẩn (mặc định), Controller cập nhật khi bật / tắt
         self.trash = (0, 0)         # tâm vùng xóa (góc trên trái)
+        self.near_trash = False     # đang kéo, tay sát vùng xóa: vùng to ra, hình tô đỏ
         self.avoid = []             # khung viên số đo góc vừa vẽ (render ghi mỗi frame): tay cầm xoay không đè lên
         self.rotation = None        # đang xoay: {"pivot", "a0", "pts0", "kind", "applied", "pos"}
         self.selected = None        # id hình đang chọn
@@ -52,30 +57,46 @@ class SelectTool:
                 for i, k in enumerate(MEASURES.get(shape["kind"], []))]
 
     def handle(self, shape):
-        """Vị trí tay cầm xoay ở 1 góc khung bao, trong vùng vẽ, ngoài cột Tính. Ưu tiên trên phải (thử hết các khoảng
-        cách rồi mới sang góc khác), tránh đỉnh (tên đỉnh) và viên số đo góc vừa vẽ (self.avoid); hình tròn không xoay."""
+        """Vị trí tay cầm xoay, trong vùng vẽ, ngoài cột Tính; hình tròn không xoay. Ưu tiên góc trên phải khung bao (thử
+        hết các khoảng cách). Góc đó bị đỉnh / viên số đo góc (self.avoid) chiếm thì lấy chỗ trống gần nó nhất quanh các
+        đỉnh và các góc khung bao – sát hình, không nhảy ra góc khung bao trống xa hình (tam giác vuông bật Góc).
+        Chỗ trống: cách đỉnh (tên đỉnh) > 60 px, không đè viên góc, ngoài hình, cách nét > HANDLE_HIT (không cướp
+        lần cầm hình) nhưng không quá HANDLE_NEAR (góc khung bao trống – cạnh huyền đi xuống – cũng là xa hình)."""
         if shape is None or shape["kind"] == "circle":
             return None
-        xs, ys = [p[0] for p in shape["pts"]], [p[1] for p in shape["pts"]]
+        pts = shape["pts"]
+        xs, ys = [p[0] for p in pts], [p[1] for p in pts]
         r = HANDLE_R + 4
-        first = None
-        for right, up in ((True, True), (False, True), (True, False), (False, False)):
-            for d in (HANDLE_OFFSET, HANDLE_OFFSET + 28):    # sát đỉnh thì ra xa hơn
-                # kẹp vào vùng vẽ (dưới dải nút, ngoài cột Tính) thay vì bỏ góc đó
-                c = (min(max(max(xs) + d if right else min(xs) - d, 20), self.menu_x - 20),
-                     max(min(ys) - d if up else max(ys) + d, self.top + 40))
-                first = first or c
-                if all(math.dist(c, p) > 60 for p in shape["pts"]) and not any(
-                        x0 - r <= c[0] <= x1 + r and y0 - r <= c[1] <= y1 + r for x0, y0, x1, y1 in self.avoid):
-                    return c
-        return first
+
+        def spot(x, y):     # kẹp vào vùng vẽ (dưới dải nút, ngoài cột Tính, không sát mép dưới)
+            return min(max(x, 20), self.menu_x - 20), min(max(y, self.top + 40), self.height - 40)
+
+        def free(c):
+            return (all(math.dist(c, p) > 60 for p in pts) and HANDLE_HIT + 5 < distance_to_shape(c, shape) <= HANDLE_NEAR
+                    and not contains(c, shape) and not any(x0 - r <= c[0] <= x1 + r and y0 - r <= c[1] <= y1 + r
+                                                           for x0, y0, x1, y1 in self.avoid))
+
+        ideal = spot(max(xs) + HANDLE_OFFSET, min(ys) - HANDLE_OFFSET)
+        for d in (HANDLE_OFFSET, HANDLE_OFFSET + 28):        # sát đỉnh thì ra xa hơn
+            c = spot(max(xs) + d, min(ys) - d)
+            if free(c):
+                return c
+        # ponytail: 12 hướng x 2 khoảng quanh mỗi đỉnh (~100 điểm); đủ cho tam giác / chữ nhật
+        near = [spot(x + d * math.cos(math.radians(a)), y + d * math.sin(math.radians(a)))
+                for x, y in pts for d in (70, 100) for a in range(0, 360, 30)]
+        near += [spot(x, y) for d in (HANDLE_OFFSET, HANDLE_OFFSET + 28)
+                 for x in (min(xs) - d, max(xs) + d) for y in (min(ys) - d, max(ys) + d)]
+        return min(filter(free, near), key=lambda c: math.dist(c, ideal), default=ideal)
 
     def _label_at(self, board, pos):
+        """Ô số đo có viên nhãn dưới pos: cả mặt viên (khung do render dùng để vẽ), ít nhất label_radius quanh tâm."""
+        from airgeo.ui.render import side_chips     # render dùng hằng số của file này: nhập muộn tránh vòng lặp
         shape = board.get(self.selected) if self.selected else None
         if shape is None:
             return None, None
-        for f, p in label_anchors(shape).items():
-            if math.dist(pos, p) <= self.label_radius:
+        r = self.label_radius
+        for f, (_, (x, y), (hw, hh)) in side_chips(shape, board.scale, board.unit).items():
+            if abs(pos[0] - x) <= max(hw, r) and abs(pos[1] - y) <= max(hh, r):
                 return shape, f
         return shape, None
 
@@ -129,14 +150,20 @@ class SelectTool:
                 self._snap = board.begin()
             if self.rotation:
                 self._rotate(board, ev.pos)
+                self._last = ev.pos
             else:
-                board.translate(self.selected, ev.pos[0] - self._last[0], ev.pos[1] - self._last[1])
-            self._last = ev.pos
+                # phần bị kẹp không tính vào _last: tay quay lại thì hình theo tay đúng chỗ cầm
+                dx, dy = self._clamp(board.get(self.selected), ev.pos[0] - self._last[0], ev.pos[1] - self._last[1])
+                board.translate(self.selected, dx, dy)
+                self._last = (self._last[0] + dx, self._last[1] + dy)
             shape = board.get(self.selected)       # None nếu U gỡ mất hình giữa lúc kéo
-            if shape is not None and not self.rotation and math.dist(ev.pos, self.trash) <= TRASH_R:
+            gap = math.dist(ev.pos, self.trash) if shape is not None and not self.rotation else math.inf
+            self.near_trash = gap <= TRASH_R + TRASH_WARN
+            if gap <= TRASH_R:
                 board.undo(self._snap)   # hình về chỗ cũ rồi mới xóa: Undo trả hình về đúng chỗ trước khi kéo
                 board.remove(self.selected)
                 self.selected, self.show, self._grab, self._dragging, self.blocked = None, set(), None, False, False
+                self.near_trash = False
                 ctl.notify("Đã xóa hình", ev.t)
                 return
             self.blocked = shape is not None and board.collides(shape, self.selected) is not None
@@ -147,7 +174,15 @@ class SelectTool:
                 board.undo(self._snap)   # gỡ đúng lần kéo này: hình về chỗ cũ, không để lại bước Undo
                 ctl.notify("Không thả được: đè lên hình khác", ev.t)
             self._grab, self._dragging, self._clear_at, self.blocked = None, False, None, False
-            self.rotation = None
+            self.rotation, self.near_trash = None, False
+
+    def _clamp(self, shape, dx, dy):
+        """Dời (dx, dy) sao cho khung bao hình vẫn trong vùng vẽ; hình đã lỡ ra ngoài thì chỉ không cho ra thêm."""
+        if shape is None:
+            return dx, dy
+        x0, y0, x1, y1 = _bbox(shape)
+        return (min(max(dx, min(0, -x0)), max(0, self.width - x1)),
+                min(max(dy, min(0, self.top - y0)), max(0, self.height - y1)))
 
     def _rotate(self, board, pos):
         r = self.rotation
@@ -162,4 +197,4 @@ class SelectTool:
         if self.blocked:
             ctl.board.undo(self._snap)   # đổi công cụ giữa lúc kéo đè: cũng bật về
         self.selected, self._grab, self._dragging, self._clear_at, self.blocked = None, None, False, None, False
-        self.show, self.rotation = set(), None
+        self.show, self.rotation, self.near_trash = set(), None, False

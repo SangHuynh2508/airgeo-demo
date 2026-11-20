@@ -37,19 +37,32 @@ class Board:
         self.unit = "cm"
         self.last_info = ""    # lý do nhận dạng của nét cuối, hiển thị lên HUD
         self._history = deque(maxlen=history_limit)
+        self._redo = []        # các bước vừa Undo (Làm lại); thao tác mới thì bỏ
         self._next_id = 1
 
     def begin(self):
         """Lưu bản sao trước 1 thao tác. Gọi đúng 1 lần cho mỗi thao tác. Trả về bản sao (để undo(only=...))."""
         self._history.append((copy.deepcopy(self.shapes), self.scale))
+        self._redo.clear()
         return self._history[-1]
 
     def undo(self, only=None):
-        """Gỡ bước cuối. only: chỉ gỡ nếu bước cuối đúng là bản sao này (đã bị U / Xóa hết gỡ mất thì thôi).
+        """Gỡ bước cuối. only: chỉ gỡ nếu bước cuối đúng là bản sao này (đã bị U / Xóa hết gỡ mất thì thôi) – đó là
+        HỦY thao tác dở (kéo bị chặn, kéo vào vùng xóa) nên không để lại bước Làm lại.
         Trả về False nếu không có gì để gỡ."""
         if not self._history or (only is not None and self._history[-1] is not only):
             return False
+        if only is None:
+            self._redo.append((self.shapes, self.scale))
         self.shapes, self.scale = self._history.pop()
+        return True
+
+    def redo(self):
+        """Làm lại bước vừa Undo. Trả về False nếu không còn gì."""
+        if not self._redo:
+            return False
+        self._history.append((self.shapes, self.scale))
+        self.shapes, self.scale = self._redo.pop()
         return True
 
     def get(self, sid):

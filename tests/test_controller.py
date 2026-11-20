@@ -262,7 +262,7 @@ def test_drawn_shape_is_centered_and_enlarged(stroke):
 
 def test_fit_box_leaves_more_room_below_than_above():
     c = _ctl()
-    assert c.fit_box == (110, 90, c.tools["select"].menu_x - 110, 720 - 180)   # nhãn cạnh đáy xa mép dưới
+    assert c.fit_box == (130, 90, c.tools["select"].menu_x - 130, 720 - 180)   # nhãn cạnh đáy xa mép dưới
     c.key(ord("t"), 0)
     assert c.fit_box[1] == c.toolbar.height + 90
 
@@ -295,3 +295,49 @@ def test_undo_with_nothing_left_says_so():
     _hold(c, "palm", 0.0, 0.2)
     _hold(c, "fist", 0.5, 1.0)
     assert c.message == "Không còn gì để hoàn tác"
+
+
+def test_key_y_and_menu_item_redo_with_messages(stroke):
+    from airgeo.interaction.pointer import PointerEvent as E
+    c = _ctl()
+    assert c.key(ord("y"), 0.0) and c.message == "Không còn gì để làm lại"
+    stroke(c, LINE, t0=1.0)
+    c.key(ord("u"), 2.0)
+    assert c.board.shapes == [] and c.message == "Đã hoàn tác"
+    assert c.key(ord("y"), 3.0) and len(c.board.shapes) == 1 and c.message == "Đã làm lại"
+    c.key(ord("u"), 4.0)
+    c.menu.open((640, 400), 5.0)
+    pos = dict(c.menu.positions())["redo"]
+    c.dispatch(E("down", pos, 5.1)); c.dispatch(E("up", pos, 5.2))
+    assert len(c.board.shapes) == 1 and c.message == "Đã làm lại" and not c.menu.is_open
+
+
+def test_edit_measurement_and_clear_undo_then_redo(press):
+    c = _ctl_with_selected_triangle(press)
+    press(c, label_anchors(c.board.shapes[0])["AB"])
+    for code in b"3\t4\t5\r":
+        c.key(code, 0)
+    scale, pts = c.board.scale, list(c.board.shapes[0]["pts"])
+    c.key(ord("u"), 1.0)
+    assert c.board.scale is None
+    c.key(ord("y"), 1.1)
+    assert c.board.scale == scale and c.board.shapes[0]["pts"] == pts
+    c.key(ord("c"), 1.2)
+    c.key(ord("u"), 1.3)
+    c.key(ord("y"), 1.4)
+    assert c.board.shapes == []
+    c.key(ord("u"), 1.5)
+    c.board.cycle_unit()                         # đổi đơn vị không phải bước Undo: không xóa nhánh làm lại
+    assert c.key(ord("y"), 1.6) and c.board.shapes == [] and c.board.unit == "dm"
+
+
+def test_menu_help_item_shows_the_legend_for_a_while(stroke):
+    from airgeo.interaction.controller import LEGEND_SECONDS
+    from airgeo.interaction.pointer import PointerEvent as E
+    c = _ctl()
+    stroke(c, LINE)                              # bảng đã có hình: gợi ý tự ẩn, chỉ mục Gợi ý bật lại
+    assert c.legend_until < 1.0
+    c.menu.open((640, 400), 5.0)
+    pos = dict(c.menu.positions())["help"]
+    c.dispatch(E("down", pos, 5.1)); c.dispatch(E("up", pos, 5.2))
+    assert c.legend_until == pytest.approx(5.1 + LEGEND_SECONDS) and 5 <= LEGEND_SECONDS <= 10

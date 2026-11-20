@@ -286,6 +286,39 @@ def test_corner_zone_is_drawn_only_while_dragging(stroke):
     assert frame[60:120, 60:120].any()
 
 
+def test_near_corner_zone_warns_grows_and_paints_shape_red(stroke):
+    import numpy as np
+    from airgeo.tools.select import TRASH_R
+    from airgeo.ui.render import ERASE_COLOR, draw_tool_overlay
+    c = _ctl_with_line(stroke)
+    sel = c.tools["select"]
+    _drag_to(c, [(200, 300), (220, 320), (400, 400)])
+    far = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(far, c)
+    assert not sel.near_trash and not far[2:6, TRASH_R + 12].any()
+    c.dispatch(E("move", (130, 130), 3.2))          # cách góc 184 px: ngoài vùng xóa, trong dải cảnh báo
+    near = np.zeros((720, 1280, 3), np.uint8)
+    draw_tool_overlay(near, c)
+    assert sel.near_trash and len(c.board.shapes) == 1
+    assert near[2:6, TRASH_R + 12].any()                          # vùng xóa to ra
+    assert tuple(near[130, 180]) == ERASE_COLOR                   # hình tô đỏ: sắp xóa
+    c.dispatch(E("move", (600, 500), 3.3))
+    assert not sel.near_trash
+    c.dispatch(E("move", (60, 60), 3.4))                          # vào hẳn mới xóa
+    assert c.board.shapes == [] and not sel.near_trash
+
+
+def test_dragged_shape_stays_inside_the_frame_and_keeps_its_grip(stroke):
+    c = _ctl_with_line(stroke)
+    _drag_to(c, [(200, 300), (220, 320), (1250, 700)])            # tay kéo quá mép phải
+    assert max(p[0] for p in c.board.shapes[0]["pts"]) == 1280
+    c.dispatch(E("move", (1100, 700), 3.2))                       # tay quay lại: hình theo tay như lúc cầm
+    assert c.board.shapes[0]["pts"][0] == (1000, 700)
+    c.do("bar")                                                   # dải nút hiện: mép trên vùng vẽ hạ xuống
+    c.dispatch(E("move", (1100, 10), 3.3))
+    assert min(p[1] for p in c.board.shapes[0]["pts"]) == c.toolbar.height
+
+
 def test_undo_twice_mid_drag_then_corner_does_not_claim_a_deletion(stroke):
     c = _ctl_with_line(stroke)
     _drag_to(c, [(200, 300), (220, 320), (400, 400)])
@@ -294,6 +327,77 @@ def test_undo_twice_mid_drag_then_corner_does_not_claim_a_deletion(stroke):
     c.dispatch(E("move", (60, 60), 3.7))
     c.dispatch(E("up", (60, 60), 4.0))
     assert c.board.shapes == [] and c.message != "Đã xóa hình"
+
+
+def test_drag_undo_redo_and_new_drag_drops_redo(stroke):
+    c = _ctl_with_line(stroke)
+    before = list(c.board.shapes[0]["pts"])
+    stroke(c, [(200, 300), (205, 300), (250, 350), (260, 350)])
+    moved = list(c.board.shapes[0]["pts"])
+    c.key(ord("u"), 5.0)
+    assert c.board.shapes[0]["pts"] == before
+    c.key(ord("y"), 5.1)
+    assert c.board.shapes[0]["pts"] == moved
+    c.key(ord("u"), 5.2)
+    stroke(c, [(200, 300), (205, 300), (200, 400)], t0=6.0)       # kéo mới sau Undo: nhánh làm lại bỏ đi
+    assert not c.board.redo()
+
+
+def test_rotation_handle_stays_near_a_345_triangle_when_angle_chips_take_the_corner():
+    import numpy as np
+    from airgeo.geometry.hit import distance_to_shape
+    from airgeo.tools.select import HANDLE_R
+    from airgeo.ui.render import draw_tool_overlay
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append({"kind": "triangle", "pts": [(300.0, 500.0), (600.0, 500.0), (600.0, 100.0)], "raw": [],
+                           "id": 1, "locked": False})
+    c.board.fit(1, c.fit_box)
+    c.board.scale = math.dist(*c.board.get(1)["pts"][:2]) / 3
+    c.do("select")
+    sel = c.tools["select"]
+    sel.selected, sel.show = 1, {"angles", "perimeter", "area"}
+    for bar in (False, True):
+        if bar:
+            c.do("bar")
+        draw_tool_overlay(np.zeros((720, 1280, 3), np.uint8), c)   # như app: viên góc của frame trước
+        s = c.board.get(1)
+        hx, hy = sel.handle(s)
+        assert distance_to_shape((hx, hy), s) <= 120, (bar, hx, hy)  # không ra góc trống xa hình
+        assert all(math.dist((hx, hy), p) > 60 for p in s["pts"])
+        assert not any(x0 - HANDLE_R <= hx <= x1 + HANDLE_R and y0 - HANDLE_R <= hy <= y1 + HANDLE_R
+                       for x0, y0, x1, y1 in sel.avoid)
+        assert hy - HANDLE_R > c.bounds[1]
+    # góc trên phải khung bao trống nhưng xa hình (cạnh huyền đi xuống phải): cũng không đặt ở đó
+    tri = {"kind": "triangle", "pts": [(130.0, 540.0), (990.0, 540.0), (130.0, 90.0)]}
+    sel.avoid = []
+    assert distance_to_shape(sel.handle(tri), tri) <= 120
+
+
+def test_rotation_undo_then_redo(press):
+    c = Controller(Config(), 1280, 720)
+    c.board.shapes.append(dict(RECT))
+    c.do("select")
+    press(c, (600, 450))
+    _rotate_drag(c, 87)
+    turned = list(c.board.get(1)["pts"])
+    c.key(ord("u"), 2.0)
+    assert c.board.get(1)["pts"] == RECT["pts"]
+    c.key(ord("y"), 2.1)
+    assert c.board.get(1)["pts"] == turned
+
+
+def test_corner_delete_undo_then_redo_deletes_again(stroke):
+    c = _ctl_with_line(stroke)
+    before = list(c.board.shapes[0]["pts"])
+    _drag_to(c, [(200, 300), (220, 320), (150, 150), (60, 60)])
+    c.dispatch(E("up", (60, 60), 4.0))
+    c.key(ord("u"), 4.1)
+    assert c.board.shapes[0]["pts"] == before
+    c.key(ord("y"), 4.2)
+    assert c.board.shapes == []
+    c.key(ord("u"), 4.3)
+    c.key(ord("u"), 4.4)                                          # gỡ tiếp: về trước lúc đặt đoạn thẳng
+    assert c.board.shapes == [] and c.key(ord("y"), 4.5) and c.board.shapes[0]["pts"] == before
 
 
 def test_rotation_handle_keeps_off_vertices_where_angle_values_sit():

@@ -13,10 +13,14 @@ from airgeo.tools.draw import DrawTool
 from airgeo.tools.erase import EraseTool
 from airgeo.tools.select import SelectTool
 
-KEY_ACTIONS = {ord("u"): "undo", ord("c"): "clear", ord("n"): "unit", ord("t"): "bar",
+KEY_ACTIONS = {ord("u"): "undo", ord("y"): "redo", ord("c"): "clear", ord("n"): "unit", ord("t"): "bar",
                ord("v"): "draw", ord("g"): "select", ord("x"): "erase"}
+UNDO_MESSAGES = {"undo": ("Đã hoàn tác", "Không còn gì để hoàn tác"),
+                 "redo": ("Đã làm lại", "Không còn gì để làm lại")}
 TOOL_LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa"}
-FIT_MARGIN = 110      # lề trái / phải quanh hình đã phóng to: chỗ cho ô nhãn cạnh, số đo góc, tay cầm xoay
+LEGEND_SECONDS = 8.0   # mục Gợi ý / phím H: bảng gợi ý hiện chừng này giây rồi tự ẩn (không che bài giảng mãi)
+FIT_MARGIN = 130      # lề trái / phải quanh hình đã phóng to: chỗ cho nhãn cạnh dọc 2 dòng ("CA =" / "1.5 cm"),
+                      # số đo góc, tay cầm xoay; cạnh dọc bên phải thì nhãn không lấn cột Tính
 FIT_TOP, FIT_BOTTOM = 90, 180   # lề dưới rộng hơn: nhãn cạnh đáy không sát mép dưới (tay thấp thì mất tay)
 
 
@@ -33,6 +37,7 @@ class Controller:
         self.poses = PoseTrigger()  # tư thế tay giữ yên -> lệnh (xem gesture/pose.py)
         self._fist_ok = True        # False sau mỗi lần nhả: tay thả lỏng khép hờ sau khi vẽ không được là Undo
         self._owner = None          # ai nhận lần chụm hiện tại: "panel" | "toolbar" | "tool"
+        self.legend_until = 0.0     # hiện bảng gợi ý tới lúc này (kể cả khi bảng đã có hình)
         self.message, self.message_until = "", 0.0   # thông báo ngắn trên màn hình (vd. bị chặn đè hình)
 
     @property
@@ -67,7 +72,7 @@ class Controller:
             if ev.kind == "down":
                 action = self.menu.press(ev.pos, ev.t)
                 if action:
-                    self.do(action)
+                    self.do(action, ev.t)
                 if action == "unit":        # menu đã đóng: không còn chỗ nào hiện đơn vị mới
                     self.notify(f"Đơn vị: {self.board.unit}", ev.t)
                 elif action == "clear":
@@ -76,7 +81,7 @@ class Controller:
             if ev.kind == "down":
                 action = self.toolbar.press(ev.pos, ev.t)
                 if action:
-                    self.do(action)
+                    self.do(action, ev.t)
         elif owner == "tool":
             self.tools[self.tool].on_event(ev, self)
 
@@ -90,17 +95,22 @@ class Controller:
             return "pinch"
         return "two_finger"
 
-    def do(self, action):
+    def do(self, action, t=None):
+        """t: lúc bấm – có thì Hoàn tác / Làm lại báo kết quả lên màn hình."""
         if action in self.tools:
             self.set_tool(action)
-        elif action == "undo":
-            self.board.undo()
+        elif action in UNDO_MESSAGES:
+            ok = self.board.undo() if action == "undo" else self.board.redo()
+            if t is not None:
+                self.notify(UNDO_MESSAGES[action][not ok], t)
         elif action == "clear":
             self.board.clear()
             self.panel.close()
             self.menu.close()
         elif action == "unit":
             self.board.cycle_unit()
+        elif action == "help":
+            self.legend_until = (t or 0.0) + LEGEND_SECONDS
         elif action == "bar":
             self.toolbar.visible = not self.toolbar.visible
             self.tools["select"].top = self.bounds[1]
@@ -130,7 +140,7 @@ class Controller:
         elif action == "menu":
             self.menu.open(center, t)
         elif action == "undo":
-            self.notify("Đã hoàn tác" if self.board.undo() else "Không còn gì để hoàn tác", t)
+            self.do("undo", t)
         elif action != self.tool:
             self.set_tool(action)
             self.notify(TOOL_LABELS[action], t)
@@ -146,5 +156,5 @@ class Controller:
         action = KEY_ACTIONS.get(code)
         if action is None:
             return False
-        self.do(action)     # phím C xóa ngay, không cần xác nhận (bàn phím là thao tác có chủ đích)
+        self.do(action, t)  # phím C xóa ngay, không cần xác nhận (bàn phím là thao tác có chủ đích)
         return True
