@@ -14,14 +14,16 @@ Tính cả 2 cách, chọn bằng `mode` (phím P trong app):
           sai nặng khi bàn tay nghiêng ngang / ngón trỏ chĩa vào camera.
 
 Dùng 2 ngưỡng (hysteresis): đang nhả thì phải xuống dưới `on_ratio` mới bật chụm,
-đang chụm thì phải vượt `off_ratio` mới nhả. Ngoài ra khi đang chụm mà mất tay hoặc tỉ lệ
-vượt ngưỡng nhả, chưa nhả ngay mà "giữ" (holding) tối đa `grace` giây: MediaPipe hay đặt
-sai điểm vài frame (tỉ lệ nhảy 0.2 <-> 0.6), nếu cắt ngay thì nét bị đứt.
+đang chụm thì phải vượt `off_ratio` mới nhả. Vượt ngưỡng nhả rồi vẫn "giữ" (holding) một lúc mới nhả:
+  - tỉ lệ tăng dần (mở ngón thật): giữ `confirm` giây (~2 frame) rồi nhả – nhả nhanh, không trễ;
+  - mất tay hoặc tỉ lệ nhảy vọt > GLITCH_JUMP trong 1 frame: giữ tới `grace` giây – MediaPipe hay đặt
+    sai điểm vài frame (tỉ lệ nhảy 0.2 <-> 0.6), nếu cắt ngay thì nét bị đứt.
 """
 import math
 
 
 PAIRS = {"pinch": (4, 8), "two_finger": (8, 12)}
+GLITCH_JUMP = 0.25      # tỉ lệ đổi hơn chừng này trong 1 frame: MediaPipe đặt sai điểm, không phải mở ngón
 
 
 def _extended(p, tip, pip):
@@ -30,10 +32,12 @@ def _extended(p, tip, pip):
 
 
 class PinchDetector:
-    def __init__(self, on_ratio=0.20, off_ratio=0.35, grace=0.2, mode="2d", gesture="pinch"):
+    def __init__(self, on_ratio=0.20, off_ratio=0.35, grace=0.2, mode="2d", gesture="pinch", confirm=0.07):
         assert on_ratio < off_ratio, "ngưỡng bật phải nhỏ hơn ngưỡng nhả"
         self.on_ratio, self.off_ratio = on_ratio, off_ratio
-        self.grace = grace
+        self.grace, self.confirm = grace, confirm
+        self._prev = None     # tỉ lệ hợp lệ frame trước (phân biệt mở ngón thật / nhảy điểm)
+        self._limit = grace   # thời gian giữ của chuỗi frame vượt ngưỡng hiện tại
         self.mode = mode
         self.gesture = gesture
         self.pinched = False
@@ -46,6 +50,13 @@ class PinchDetector:
         if self.on_ratio + delta > 0.05:
             self.on_ratio += delta
             self.off_ratio += delta
+
+    @property
+    def closure(self):
+        """Mức khép ngón 0..1: 0 = mở quá ngưỡng nhả, 1 = tới ngưỡng bấm (vẽ vòng phản hồi quanh con trỏ)."""
+        if self.ratio is None:
+            return 0.0
+        return min(max((self.off_ratio - self.ratio) / (self.off_ratio - self.on_ratio), 0.0), 1.0)
 
     def toggle_mode(self):
         self.mode = "3d" if self.mode == "2d" else "2d"
@@ -68,6 +79,7 @@ class PinchDetector:
                 and not _extended(hand["pts"], 16, 14) and not _extended(hand["pts"], 20, 18)):
             ratio = None
 
+        prev, self._prev = self._prev, ratio
         if not self.pinched:
             self.holding = False
             if ratio is not None and ratio < self.on_ratio:
@@ -77,10 +89,12 @@ class PinchDetector:
         if ratio is not None and ratio <= self.off_ratio:
             self.since, self.holding = None, False
             return True
-        # Mất tay hoặc tỉ lệ vượt ngưỡng nhả: chờ thêm `grace` giây rồi mới nhả
+        # Vượt ngưỡng nhả: mở ngón thật thì chờ `confirm`, mất tay / nhảy điểm thì chờ `grace` rồi mới nhả
         if self.since is None:
             self.since = t
-        if t - self.since <= self.grace:
+            glitch = ratio is None or prev is None or ratio - prev > GLITCH_JUMP
+            self._limit = self.grace if glitch else self.confirm
+        if t - self.since <= self._limit:
             self.holding = True
             return True
         self.pinched, self.holding, self.since = False, False, None
