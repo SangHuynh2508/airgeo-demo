@@ -1,6 +1,6 @@
 import pytest
 import math
-from helpers import place_line
+from helpers import place_tri
 import cv2
 import numpy as np
 
@@ -36,8 +36,7 @@ def test_hud_shows_last_recognition():
 
 
 def test_drawing_functions_paint_on_frame(make_hand):
-    strokes = [{"kind": "line", "pts": [(100, 400), (400, 500)], "raw": []},
-               {"kind": "circle", "pts": [], "center": (600, 300), "radius": 80, "raw": []},
+    strokes = [{"kind": "circle", "pts": [], "center": (600, 300), "radius": 80, "raw": []},
                {"kind": "rect", "pts": [(700, 100), (900, 100), (900, 250), (700, 250)], "raw": []},
                {"kind": "triangle", "pts": [(100, 700), (300, 700), (200, 550)], "raw": []},
                {"kind": "free", "pts": [(50, 600), (80, 620), (120, 610)], "raw": []}]
@@ -59,7 +58,7 @@ def test_drawing_functions_paint_on_frame(make_hand):
 def test_selection_overlay_paints(stroke, press):
     from airgeo.ui.render import draw_tool_overlay
     c = Controller(Config(), 1280, 720)
-    place_line(c, 300)
+    place_tri(c, 300)
     c.do("select")
     press(c, (200, 300))
     frame = np.zeros((720, 1280, 3), np.uint8)
@@ -71,7 +70,7 @@ def test_erase_overlay_paints_red(stroke):
     from airgeo.interaction.pointer import PointerEvent
     from airgeo.ui.render import draw_tool_overlay
     c = Controller(Config(), 1280, 720)
-    place_line(c, 300)
+    place_tri(c, 300)
     c.do("erase")
     c.dispatch(PointerEvent("hover", (200, 300), 1.0))
     frame = np.zeros((720, 1280, 3), np.uint8)
@@ -154,10 +153,6 @@ def test_formula_panel_fits_small_frame_and_skips_line():
     x0, y0, x1, y1 = draw_formulas(frame, c.board.get(1), c.tools["select"], 100.0, "cm")
     assert 0 <= x0 and y1 <= 480 - 40 and x1 <= c.tools["select"].menu_x   # sang trái cột nút, đủ chỗ
     assert frame[y1 - 30:y1 - 8, x0 + 8:x1 - 8].any()                      # dòng kết quả cuối có trong ảnh
-    c, sel = _selected({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)]}, {"perimeter", "area"})
-    frame = np.zeros((720, 1280, 3), np.uint8)
-    draw_tool_overlay(frame, c)
-    assert not frame[sel.menu_y:690, 1000:1270].any()       # đoạn thẳng: không có cột nút, bảng công thức
 
 
 def test_perimeter_and_area_are_not_duplicated_on_the_shape():
@@ -343,14 +338,6 @@ def test_whole_side_chip_face_opens_the_panel(press):
     assert c.panel.is_open and c.panel.focus == "AB"
 
 
-def test_title_shown_for_line_without_menu():
-    from airgeo.ui.render import draw_tool_overlay
-    c, sel = _selected({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)]}, set())
-    frame = np.zeros((720, 1280, 3), np.uint8)
-    draw_tool_overlay(frame, c)
-    assert frame[sel.menu_y - 40:sel.menu_y - 4, sel.menu_x + 100:sel.menu_x + 150].any()   # "Đoạn thẳng"
-
-
 def test_triangle_angle_values_sit_outside_with_a_leader():
     from airgeo.ui.render import draw_angles
     tri = {"kind": "triangle", "pts": [(300, 500), (700, 500), (300, 200)], "raw": []}   # vuông A, ~37° B, ~53° C
@@ -494,7 +481,7 @@ def test_cursor_shape_tells_which_gesture_presses():
 def test_strokes_get_a_dark_halo_on_a_bright_wall():
     from airgeo.ui.render import draw_selection
     white = np.full((200, 400, 3), 255, np.uint8)
-    line = {"kind": "line", "pts": [(50, 100), (350, 100)], "id": 1}
+    line = {"kind": "triangle", "pts": [(50, 100), (350, 100), (200, 190)], "id": 1}   # cạnh đáy y = 100
     out = draw_canvas(white, [line], [(50, 160), (350, 160)])
     assert out[100, 200].max() > 200 and out[160, 200].min() > 200      # nét vẫn sáng
     assert out[104, 200].max() < 80 and out[163, 200].max() < 80        # viền tối sát nét (không có: 153)

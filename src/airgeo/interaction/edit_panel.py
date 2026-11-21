@@ -5,7 +5,7 @@ Nhập số bằng 2 cách cùng lúc vào ô đang chọn:
   - Bàn phím máy tính: số, dấu chấm, Backspace, Enter = OK, Tab = ô kế, Esc = Hủy.
 Nút (áp 2 ngón): `.` `←` (xóa chữ số cuối) `Xóa` (xóa cả ô) `OK` `Hủy`.
 
-Bảng có đủ các ô của hình (tam giác AB BC CA, chữ nhật dai rong, tròn r, đoạn thẳng d) để nhập cả bộ số rồi dựng
+Bảng có đủ các ô của hình (tam giác AB BC CA, chữ nhật dai rong, tròn r) để nhập cả bộ số rồi dựng
 hình 1 lần. Chưa có tỉ lệ: ô đầu tiên có số làm chuẩn, ô trống giữ tỉ lệ cạnh như đang vẽ. Dựng xong hình được
 phóng to ra giữa vùng vẽ (construct.fit) – tỉ lệ px/cm nhân theo nên số đo giữ đúng số đã nhập.
 """

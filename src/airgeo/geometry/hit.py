@@ -27,12 +27,8 @@ def contains(pos, shape):
 def distance_to_shape(pos, shape):
     if shape["kind"] == "circle":
         return abs(math.dist(pos, shape["center"]) - shape["radius"])
-    pts = list(shape["pts"])
-    if shape["kind"] in ("triangle", "rect"):
-        pts.append(pts[0])            # đường kín: thêm cạnh đóng hình
-    if len(pts) == 1:
-        return math.dist(pos, pts[0])
-    return min(_segment_distance(pos, a, b) for a, b in zip(pts, pts[1:]))
+    pts = shape["pts"]
+    return min(_segment_distance(pos, a, b) for a, b in zip(pts, pts[1:] + pts[:1]))   # cả cạnh đóng hình
 
 
 def bbox(s):

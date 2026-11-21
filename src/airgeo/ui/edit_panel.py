@@ -5,7 +5,7 @@ import numpy as np
 from airgeo.ui.render import BUTTON_EDGE, BUTTON_HOVER, FIELD_LABELS, draw_button, ip
 from airgeo.ui.text import put_text, text_size
 
-TITLES = {"line": "Đoạn thẳng", "triangle": "Tam giác", "rect": "Hình chữ nhật", "circle": "Hình tròn"}
+TITLES = {"triangle": "Tam giác", "rect": "Hình chữ nhật", "circle": "Hình tròn"}
 BUTTON_LABELS = {"dot": "Dấu chấm", "back": "← Xóa 1 số", "clear": "Xóa ô", "ok": "OK", "cancel": "Hủy"}
 INK = (255, 255, 255)
 GUIDE = (90, 90, 90)

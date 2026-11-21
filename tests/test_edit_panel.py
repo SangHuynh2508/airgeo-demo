@@ -154,14 +154,6 @@ def test_hit_regions_and_pad():
     assert p.in_pad(_center(p.pad_rect)) and not p.in_pad(_center(p.button_rects["ok"]))
 
 
-def test_line_panel_has_one_field():
-    board = Board()
-    board.shapes.append({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)], "raw": [], "id": 1, "locked": False})
-    p = EditPanel(Config(), 1280, 720)
-    p.open(board.shapes[0], "d", board)
-    assert p.fields == ["d"] and len(p.field_rects) >= 1
-
-
 def test_ok_row_sits_high_enough_to_reach():
     _, p, _ = _setup()
     assert max(r[3] for r in p.button_rects.values()) <= 432       # tay không phải hạ sát mép dưới khung hình

@@ -3,7 +3,7 @@ import math
 
 from airgeo.geometry.measure import centroid
 
-SNAP_KINDS = ("line", "triangle", "rect")
+SNAP_KINDS = ("triangle", "rect")
 SNAP_DEG = 8.0      # cạnh lệch trục <= bấy nhiêu độ thì hít thẳng (cả lúc vẽ lẫn lúc xoay)
 
 
@@ -29,8 +29,7 @@ def snap_delta(shape, tol):
     if shape["kind"] not in SNAP_KINDS:
         return 0
     pts = shape["pts"]
-    edges = zip(pts, pts[1:] + pts[:1]) if shape["kind"] != "line" else [pts]
-    deltas = [-((edge_angle(a, b) + 45) % 90 - 45) for a, b in edges]
+    deltas = [-((edge_angle(a, b) + 45) % 90 - 45) for a, b in zip(pts, pts[1:] + pts[:1])]
     return min((d for d in deltas if abs(d) <= tol), key=abs, default=0)
 
 

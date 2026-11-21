@@ -1,11 +1,13 @@
 import pytest
 import math
 
+from helpers import tri_path
 from airgeo.document.board import Board
+from airgeo.geometry.hit import bbox
 
 
-def line_raw(y=300, x0=100, x1=300):
-    return [(x, y, i / 30) for i, x in enumerate(range(x0, x1 + 1, 10))]
+def tri_raw(y=300):
+    return [(x, y, i / 30) for i, (x, y) in enumerate(tri_path(y))]
 
 
 def square_raw(n=20):
@@ -19,15 +21,15 @@ def square_raw(n=20):
 
 def test_add_stroke_gives_ids_and_last_info():
     b = Board()
-    s1, s2 = b.add_stroke(line_raw()), b.add_stroke(line_raw(400))
-    assert (s1["id"], s2["id"]) == (1, 2) and s1["kind"] == "line"
-    assert b.last_info.startswith("line")
+    s1, s2 = b.add_stroke(tri_raw()), b.add_stroke(tri_raw(400))
+    assert (s1["id"], s2["id"]) == (1, 2) and s1["kind"] == "triangle"
+    assert b.last_info.startswith("triangle")
 
 
 def test_undo_restores_add_remove_and_clear():
     b = Board()
-    b.add_stroke(line_raw())
-    s2 = b.add_stroke(line_raw(400))                 # thay hình 1
+    b.add_stroke(tri_raw())
+    s2 = b.add_stroke(tri_raw(400))                 # thay hình 1
     b.remove(s2["id"])
     assert b.shapes == []
     b.undo()
@@ -43,7 +45,7 @@ def test_noop_operations_add_no_undo_step():
     b = Board()
     b.undo()                          # lịch sử rỗng: không lỗi
     b.clear()                         # chưa có hình: không lưu bước Undo
-    b.add_stroke(line_raw())
+    b.add_stroke(tri_raw())
     b.remove(999)                     # id không tồn tại: không lưu bước Undo
     b.undo()
     assert b.shapes == []             # 1 lần Undo đã gỡ đúng nét vừa vẽ
@@ -51,10 +53,11 @@ def test_noop_operations_add_no_undo_step():
 
 def test_translate_moves_points_and_center():
     b = Board()
-    s = b.add_stroke(line_raw())
+    s = b.add_stroke(tri_raw())
+    (x, y) = s["pts"][0]
     b.begin()
     b.translate(s["id"], 10, -5)
-    assert b.shapes[0]["pts"][0] == (110, 295)
+    assert b.shapes[0]["pts"][0] == (x + 10, y - 5)
     b.shapes.append({"kind": "circle", "pts": [], "center": (0.0, 0.0), "radius": 5.0, "id": 9})
     b.translate(9, 10, -5)
     assert b.get(9)["center"] == (10.0, -5.0)
@@ -63,7 +66,7 @@ def test_translate_moves_points_and_center():
 
 def test_apply_edit_is_one_undo_step_including_scale():
     b = Board()
-    s = b.add_stroke(line_raw())
+    s = b.add_stroke(tri_raw())
     b.apply_edit(s["id"], dict(s, pts=[(0, 0), (1, 1)]), 50.0)
     assert b.scale == 50.0 and b.shapes[0]["pts"] == [(0, 0), (1, 1)]
     b.undo()
@@ -73,7 +76,7 @@ def test_apply_edit_is_one_undo_step_including_scale():
 def test_redo_reapplies_undone_steps_and_new_action_clears_it():
     b = Board()
     assert b.redo() is False                          # chưa Undo gì: không có gì để làm lại
-    s = b.add_stroke(line_raw())
+    s = b.add_stroke(tri_raw())
     b.apply_edit(s["id"], dict(s, pts=[(0, 0), (1, 1)]), 50.0)
     b.undo()
     b.undo()
@@ -87,7 +90,7 @@ def test_redo_reapplies_undone_steps_and_new_action_clears_it():
 
 def test_undo_only_cancels_without_leaving_a_redo_step():
     b = Board()
-    s = b.add_stroke(line_raw())
+    s = b.add_stroke(tri_raw())
     pts = list(s["pts"])
     snap = b.begin()                                  # bắt đầu kéo
     b.translate(s["id"], 50, 0)
@@ -103,7 +106,7 @@ def test_undo_only_cancels_without_leaving_a_redo_step():
 def test_history_is_limited():
     b = Board(history_limit=3)
     for y in range(5):
-        b.add_stroke(line_raw(100 + 50 * y))
+        b.add_stroke(tri_raw(100 + 50 * y))
     for _ in range(5):
         b.undo()
     assert [x["id"] for x in b.shapes] == [2]       # chỉ gỡ được 3 bước: về lúc vừa vẽ hình 2
@@ -146,7 +149,7 @@ def test_stroke_is_always_recognized_and_tidied():
 
 def test_new_stroke_replaces_the_shape_and_undo_brings_it_back():
     b = Board()
-    first = b.add_stroke(line_raw())
+    first = b.add_stroke(tri_raw())
     b.scale = 40.0
     b.add_stroke(square_raw())
     assert [s["kind"] for s in b.shapes] == ["rect"] and b.scale is None
@@ -156,7 +159,9 @@ def test_new_stroke_replaces_the_shape_and_undo_brings_it_back():
 
 def test_board_fit_keeps_measurements_in_units():
     b = Board()
-    s = b.add_stroke(line_raw())          # 200 px
-    b.scale = 20.0                        # 10 cm
-    b.fit(s["id"], (0, 0, 1000, 500))
-    assert math.dist(*b.shapes[0]["pts"]) == pytest.approx(1000) and b.scale == pytest.approx(100)
+    s = b.add_stroke(tri_raw())
+    h = bbox(s)[3] - bbox(s)[1]           # ~140 px (đã làm gọn thành tam giác cân)
+    b.scale = 20.0
+    b.fit(s["id"], (0, 0, 1000, 700))     # phóng theo chiều cao: số cm = h / 20 giữ nguyên
+    x0, y0, x1, y1 = bbox(b.shapes[0])
+    assert y1 - y0 == pytest.approx(700) and b.scale == pytest.approx(20 * 700 / h)

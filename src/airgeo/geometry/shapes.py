@@ -88,8 +88,6 @@ def tidy(shape):
 
 def shape_name(shape):
     kind = shape["kind"]
-    if kind == "line":
-        return "Đoạn thẳng"
     if kind == "circle":
         return "Hình tròn"
     if kind not in ("rect", "triangle"):

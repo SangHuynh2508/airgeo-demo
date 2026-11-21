@@ -63,8 +63,7 @@ def test_scalene_untouched():
     assert s["pts"] == pts and shape_name(s) == "Tam giác thường"
 
 
-def test_names_for_line_circle_and_right_angle_helper():
-    assert shape_name({"kind": "line", "pts": [(0, 0), (1, 0)]}) == "Đoạn thẳng"
+def test_names_for_circle_and_right_angle_helper():
     assert shape_name({"kind": "circle", "pts": [], "center": (0, 0), "radius": 5}) == "Hình tròn"
     assert is_right(90.3) and not is_right(88)
     assert math.isclose(polygon_metrics(_rect(10, 20)["pts"])["angles"][0], 90)

@@ -48,12 +48,6 @@ def test_rect_keeps_center_and_rotation():
     assert math.degrees(math.atan2(new[1][1] - new[0][1], new[1][0] - new[0][0])) == pytest.approx(30)
 
 
-def test_line_keeps_midpoint_and_direction():
-    new = build({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)], "raw": [], "id": 1},
-                {"d": 100})["pts"]
-    assert new[0] == pytest.approx((150, 300)) and new[1] == pytest.approx((250, 300))
-
-
 def test_circle_keeps_center():
     new = build({"kind": "circle", "pts": [], "center": (640.0, 400.0), "radius": 50.0, "raw": [], "id": 1},
                 {"r": 120})
@@ -91,7 +85,5 @@ def test_fit_scales_about_bbox_and_centers_in_box():
     rect = {"kind": "rect", "pts": [(0, 0), (100, 0), (100, 50), (0, 50)]}
     new, k = fit(rect, (100, 100, 1000, 600))
     assert k == pytest.approx(9) and new["pts"][0] == pytest.approx((100, 125)) and new["pts"][2] == pytest.approx((1000, 575))
-    line, k = fit({"kind": "line", "pts": [(0, 10), (50, 10)], "raw": []}, (0, 0, 500, 300))   # khung cao 0
-    assert k == pytest.approx(10) and line["pts"] == [pytest.approx((0, 150)), pytest.approx((500, 150))]
     circle, k = fit({"kind": "circle", "pts": [], "center": (5, 5), "radius": 5, "raw": []}, (0, 0, 400, 200))
     assert circle["radius"] == pytest.approx(100) and circle["center"] == pytest.approx((200, 100))

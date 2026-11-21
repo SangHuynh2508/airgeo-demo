@@ -29,8 +29,7 @@ def test_circle_r_3_cm():
     assert formula(CIRCLE, "area", 100, "cm")[1:] == ["S = πr²", "= π · 3²", "= 28.27 cm²"]
 
 
-def test_no_formula_for_line_free_or_other_keys():
-    assert formula({"kind": "line", "pts": [(0, 0), (10, 0)]}, "perimeter", None, "cm") == []
+def test_no_formula_for_free_or_other_keys():
     assert formula({"kind": "free", "pts": [(0, 0), (10, 0)]}, "area", None, "cm") == []
     assert formula(TRI, "sides", 100, "cm") == []
 

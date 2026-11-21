@@ -6,7 +6,7 @@ bằng thuật toán tìm góc dựa trên tốc độ + độ cong của Sezgin
 Vì vậy recognize() đã nhận điểm kèm timestamp (x, y, t) dù hiện tại chưa dùng t.
 
 Kết quả là dict:
-  {"kind": "line" | "circle" | "triangle" | "rect" | "free", "pts": [(x, y), ...]}
+  {"kind": "circle" | "triangle" | "rect" | "free", "pts": [(x, y), ...]}   (nét hở, kể cả nét thẳng: "free")
   circle có thêm "center", "radius".
 """
 import math
@@ -16,7 +16,6 @@ import numpy as np
 
 MIN_CIRCULARITY = 0.1   # nét kín có độ tròn thấp hơn coi như không bao diện tích
 MIN_LENGTH = 60        # nét ngắn hơn (px) coi như chấm/nhiễu do chụm chập chờn, giữ nguyên
-LINE_STRAIGHTNESS = 0.90  # khoảng cách 2 đầu mút / độ dài nét, lớn hơn -> đoạn thẳng
 CLOSED_GAP = 0.20       # khoảng hở 2 đầu mút / độ dài nét, nhỏ hơn -> nét kín
 APPROX_EPS = 0.04       # epsilon của approxPolyDP, tính theo chu vi
 CIRCLE_STRONG = 0.85    # circularity >= ngưỡng này -> hình tròn (trừ khi là tam giác)
@@ -37,13 +36,10 @@ def recognize(points):
     gap = float(np.linalg.norm(xy[-1] - xy[0]))
     info["ho"] = round(gap / length, 2)  # tỉ lệ hở 2 đầu mút
 
-    # 1) Nét hở, gần thẳng -> đoạn thẳng nối 2 đầu mút
-    if gap / length > LINE_STRAIGHTNESS:
-        return {"kind": "line", "pts": [tuple(xy[0]), tuple(xy[-1])], "info": info}
     if gap / length > CLOSED_GAP:
-        return free  # nét hở nhưng cong: giữ nguyên
+        return free  # nét hở (thẳng hay cong) không phải hình: bảng chỉ giữ tam giác, chữ nhật, tròn
 
-    # 2) Nét kín: đếm đỉnh bằng approxPolyDP + độ tròn 4*pi*A/P^2
+    # Nét kín: đếm đỉnh bằng approxPolyDP + độ tròn 4*pi*A/P^2
     cnt = xy.reshape(-1, 1, 2)
     perim = cv2.arcLength(cnt, True)
     area = abs(cv2.contourArea(cnt))

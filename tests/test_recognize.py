@@ -27,9 +27,9 @@ def test_circle_center_and_radius():
     assert abs(r["radius"] - 100) < 5 and math.dist(r["center"], (300, 300)) < 5
 
 
-def test_straight_stroke_is_line_between_endpoints():
+def test_straight_stroke_is_not_a_shape():
     r = recognize(stroke(np.c_[np.linspace(0, 300, 40), np.linspace(0, 100, 40)]))
-    assert r["kind"] == "line" and len(r["pts"]) == 2
+    assert r["kind"] == "free"                  # bảng chỉ giữ hình (tam giác, chữ nhật, tròn), không có đoạn thẳng
 
 
 def test_rectangle():

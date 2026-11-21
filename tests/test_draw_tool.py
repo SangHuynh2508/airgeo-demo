@@ -1,3 +1,4 @@
+from helpers import tri_path
 from airgeo.config import Config
 from airgeo.geometry.shapes import shape_name
 from airgeo.interaction.controller import Controller
@@ -69,7 +70,7 @@ def test_square_stroke_becomes_square(make_hand):
 
 def test_end_keeps_unfinished_stroke(make_hand):
     ctl, tool, step = _pipeline()
-    for i in range(11):
-        step(make_hand(100 + 10 * i, 200, ratio=0.1), i * 0.033)
+    for i, (x, y) in enumerate(tri_path(300)):
+        step(make_hand(x, y, ratio=0.1), i * 0.033)
     tool.end(ctl)                                  # ví dụ: đổi công cụ khi đang vẽ
     assert tool.cur is None and len(ctl.board.shapes) == 1

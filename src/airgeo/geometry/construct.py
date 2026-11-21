@@ -8,7 +8,7 @@ import math
 from airgeo.geometry.hit import bbox
 from airgeo.geometry.measure import centroid
 
-FIELDS = {"line": ["d"], "triangle": ["AB", "BC", "CA"], "rect": ["dai", "rong"], "circle": ["r"]}
+FIELDS = {"triangle": ["AB", "BC", "CA"], "rect": ["dai", "rong"], "circle": ["r"]}
 FIELD_LABELS = {"dai": "dài", "rong": "rộng"}     # chữ có dấu hiện cho học sinh (mã trường không dấu)
 
 
@@ -58,7 +58,7 @@ def label_anchors(shape, offset=60, half=None):
     for f, (a, b) in label_edges(shape).items():
         mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
         ex, ey = _unit(a, b)
-        ux, uy = (-ey, ex) if kind == "line" else _unit((cx, cy), (mx, my))    # hướng đẩy nhãn ra ngoài
+        ux, uy = _unit((cx, cy), (mx, my))       # hướng đẩy nhãn ra ngoài
         off = offset
         if half:        # khoảng cách tới cạnh đo theo pháp tuyến (-ey, ex): khung viên chiếu lên pháp tuyến
             hw, hh = half[f]
@@ -69,13 +69,11 @@ def label_anchors(shape, offset=60, half=None):
 
 def fit(shape, box):
     """Co giãn hình quanh tâm khung bao cho vừa khít box (x0, y0, x1, y1), giữ tỉ lệ, rồi dời vào giữa box
-    (học sinh nhìn rõ: hình luôn to và ở giữa). Trả về (hình mới, hệ số k). Khung bao dẹt (đoạn ngang) chỉ xét chiều
-    còn lại."""
+    (học sinh nhìn rõ: hình luôn to và ở giữa). Trả về (hình mới, hệ số k)."""
     x0, y0, x1, y1 = bbox(shape)
     lo, hi = (x0, y0), (x1, y1)
     w, h = hi[0] - lo[0], hi[1] - lo[1]
-    k = min((box[2] - box[0]) / w if w > 1e-6 else math.inf, (box[3] - box[1]) / h if h > 1e-6 else math.inf)
-    k = 1.0 if math.isinf(k) else k
+    k = min((box[2] - box[0]) / w, (box[3] - box[1]) / h)
     c, bc = ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2), ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
 
     def move(p):
@@ -104,10 +102,7 @@ def build(shape, lengths, fmt=lambda px: f"{px:.0f}px"):
         old = shape["pts"]
         u = _unit(old[0], old[1])                 # hướng cạnh đầu tiên
         n = (-u[1], u[0])                         # pháp tuyến
-        if kind == "line":
-            d = lengths["d"]
-            local = [(0.0, 0.0), (u[0] * d, u[1] * d)]
-        elif kind == "triangle":
+        if kind == "triangle":
             _check_triangle(lengths, fmt)
             c, a, b = lengths["AB"], lengths["BC"], lengths["CA"]
             x = (b * b + c * c - a * a) / (2 * c)

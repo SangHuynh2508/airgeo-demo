@@ -1,4 +1,4 @@
-from helpers import place_line
+from helpers import place_tri
 from airgeo.config import Config
 from airgeo.interaction.controller import Controller
 from airgeo.interaction.pointer import PointerEvent as E
@@ -6,7 +6,7 @@ from airgeo.interaction.pointer import PointerEvent as E
 
 def _one_line(stroke):
     c = Controller(Config(), 1280, 720)
-    place_line(c, 300)
+    place_tri(c, 300)
     c.do("erase")
     return c
 

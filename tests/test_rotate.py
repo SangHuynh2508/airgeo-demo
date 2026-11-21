@@ -27,21 +27,17 @@ def test_snap_delta_picks_nearest_axis_edge_within_tolerance():
     assert snap_delta({"kind": "circle", "pts": [], "center": (0, 0), "radius": 5}, 8) == 0
 
 
-def test_smart_straightens_slightly_tilted_rect_and_line_only():
+def test_smart_straightens_slightly_tilted_rect():
     rect = make_shape(_stroke(_rect(400, 400, 300, 150, 6)))
     assert rect["kind"] == "rect" and all(abs(edge_angle(a, b) % 90) < 0.5 or abs(edge_angle(a, b) % 90) > 89.5
                                           for a, b in zip(rect["pts"], rect["pts"][1:]))
-    line = make_shape([(100 + 10 * i, 300 + 0.6 * i, 0.0) for i in range(21)])
-    assert line["kind"] == "line" and line["pts"][0][1] == pytest.approx(line["pts"][1][1])
-    steep = make_shape([(100 + 10 * i, 300 + 6 * i, 0.0) for i in range(21)])   # ~31°: giữ nguyên
-    assert steep["pts"][1][1] - steep["pts"][0][1] > 100
 
 
 def test_board_rotate_turns_points_about_pivot():
     b = Board()
-    b.shapes.append({"kind": "line", "pts": [(100.0, 0.0), (200.0, 0.0)], "id": 1})
+    b.shapes.append({"kind": "triangle", "pts": [(100.0, 0.0), (200.0, 0.0), (150.0, 50.0)], "id": 1})
     b.rotate(1, 90, (0.0, 0.0))
-    (x0, y0), (x1, y1) = b.shapes[0]["pts"]
+    (x0, y0), (x1, y1), _ = b.shapes[0]["pts"]
     assert (x0, y0, x1, y1) == pytest.approx((0, 100, 0, 200), abs=1e-9)
     assert rotate_points([(1.0, 0.0)], 180, (0.0, 0.0))[0] == pytest.approx((-1, 0), abs=1e-9)
 

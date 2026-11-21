@@ -1,4 +1,4 @@
-from helpers import place_line
+from helpers import place_tri, tri_path
 import math
 from airgeo.config import Config
 from airgeo.interaction.controller import Controller
@@ -7,7 +7,7 @@ from airgeo.interaction.pointer import PointerEvent as E
 
 def _ctl_with_line(stroke):
     c = Controller(Config(), 1280, 720)
-    place_line(c, 300)
+    place_tri(c, 300)
     c.do("select")
     return c
 
@@ -40,12 +40,13 @@ def test_small_wobble_selects_without_moving(stroke):
 
 def test_switching_tool_mid_pinch_is_safe():
     c = Controller(Config(), 1280, 720)
-    c.dispatch(E("down", (100, 300), 0.0))
-    for i in range(1, 11):
-        c.dispatch(E("move", (100 + 10 * i, 300), 0.03 * i))
-    assert c.key(ord("g"), 0.35)                 # đổi sang Chọn khi đang vẽ: nét được giữ lại
-    c.dispatch(E("move", (250, 300), 0.36))
-    c.dispatch(E("up", (250, 300), 0.4))
+    tri = tri_path()
+    c.dispatch(E("down", tri[0], 0.0))
+    for i, p in enumerate(tri[1:], 1):
+        c.dispatch(E("move", p, 0.03 * i))
+    assert c.key(ord("g"), 0.5)                  # đổi sang Chọn khi đang vẽ: nét được giữ lại
+    c.dispatch(E("move", (250, 300), 0.51))
+    c.dispatch(E("up", (250, 300), 0.55))
     assert len(c.board.shapes) == 1 and c.tool == "select"
 
 
@@ -56,13 +57,12 @@ def test_leaving_select_clears_selection(stroke, press):
     assert c.tools["select"].selected is None
 
 
-def test_pinch_near_middle_of_selected_line_grabs_it_not_label(press):
+def test_pinch_near_middle_of_selected_edge_grabs_it_not_label(press):
     c = Controller(Config(), 1280, 720)
-    c.board.shapes.append({"kind": "line", "pts": [(100.0, 300.0), (300.0, 300.0)], "raw": [],
-                           "id": 1, "locked": False})
+    c.board.shapes.append({"kind": "triangle", "pts": [(100.0, 300.0), (300.0, 300.0), (200.0, 150.0)], "id": 1})
     c.do("select")
     press(c, (200, 300))
-    press(c, (200, 310))                          # 10 px cạnh trung điểm: vẫn là cầm đoạn thẳng
+    press(c, (200, 310))                          # 10 px ngoài trung điểm cạnh đáy: vẫn là cầm hình
     assert not c.panel.is_open and c.tools["select"].selected == 1
 
 
@@ -80,7 +80,7 @@ def test_measure_menu_depends_on_kind():
     keys = lambda kind, **extra: [k for k, _ in tool.menu({"kind": kind, "pts": [], **extra})]  # noqa: E731
     assert keys("triangle") == ["angles", "perimeter", "area"] == keys("rect")     # cạnh ghi trên nhãn cạnh
     assert keys("circle") == ["perimeter", "area"]
-    assert keys("line") == [] and keys("free") == []
+    assert keys("free") == []
     assert all(1280 - 170 <= r[0] and r[2] <= 1280 and r[1] >= 70 for _, r in tool.menu(TRI))
 
 
@@ -138,9 +138,9 @@ def test_stray_press_while_moving_to_menu_keeps_selection(stroke, press):
 
 def test_dragged_shape_undone_mid_drag_does_not_crash(stroke):
     c = Controller(Config(), 1280, 720)
-    place_line(c, 300)
+    place_tri(c, 300)
     c.do("draw")
-    place_line(c, 500)
+    place_tri(c, 500)
     c.do("select")
     c.dispatch(E("down", (200, 500), 1.0))
     c.dispatch(E("move", (200, 550), 1.03))
@@ -345,7 +345,7 @@ def test_corner_delete_undo_then_redo_deletes_again(stroke):
     c.key(ord("y"), 4.2)
     assert c.board.shapes == []
     c.key(ord("u"), 4.3)
-    c.key(ord("u"), 4.4)                                          # gỡ tiếp: về trước lúc đặt đoạn thẳng
+    c.key(ord("u"), 4.4)                                          # gỡ tiếp: về trước lúc đặt hình
     assert c.board.shapes == [] and c.key(ord("y"), 4.5) and c.board.shapes[0]["pts"] == before
 
 

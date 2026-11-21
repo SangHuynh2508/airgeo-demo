@@ -18,7 +18,7 @@ from airgeo.geometry.hit import bbox, contains, distance_to_shape
 from airgeo.geometry.rotate import SNAP_DEG, center, rotate_points, snap_delta
 
 # độ dài cạnh / bán kính luôn ghi trên nhãn cạnh (draw_selection) nên cột Tính chỉ còn góc, chu vi, diện tích
-MEASURES = {"line": [], "triangle": ["angles", "perimeter", "area"],
+MEASURES = {"triangle": ["angles", "perimeter", "area"],
             "rect": ["angles", "perimeter", "area"], "circle": ["perimeter", "area"]}
 MENU_W, MENU_H, MENU_GAP = 150, 44, 8
 HANDLE_OFFSET = 32
