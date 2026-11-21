@@ -15,7 +15,7 @@ from airgeo.geometry.rotate import edge_angle
 from airgeo.geometry.shapes import is_right, shape_name
 from airgeo.geometry.units import fmt_length, round_sum, trim
 from airgeo.gesture.pinch import draw_point
-from airgeo.interaction.controller import FIT_MARGIN
+from airgeo.interaction.controller import PANEL_EXTRA
 from airgeo.tools.select import HANDLE_R, MENU_W
 from airgeo.tracking.hand_tracker import CONNECTIONS
 from airgeo.ui.text import put_text, text_size
@@ -108,7 +108,8 @@ def side_chips(s, scale, unit):
         w, h = text_size(lines, VALUE_SIZE)
         texts[f], half[f] = lines, (max(CHIP_W, w + 20) / 2, max(CHIP_H, h + 4) / 2)
     anchors = label_anchors(s, half=half)
-    return {f: (texts[f], anchors[f], half[f]) for f in texts}
+    # cạnh dốc sát lề trái: viên 2 dòng không thò ra ngoài khung
+    return {f: (texts[f], (max(anchors[f][0], half[f][0] + 4), anchors[f][1]), half[f]) for f in texts}
 ANGLE_R, RIGHT_MARK = 26, 16          # bán kính cung góc / cạnh ô vuông góc vuông (px)
 LEADER = 34                           # khoảng từ đỉnh tới mép viên số đo góc (đường chỉ)
 
@@ -137,7 +138,7 @@ def angle_chip_center(v, b, hw, hh, W, H, top=0):
     return x, y
 
 
-def draw_angle(img, v, p, n, angle, name=None, top=0):
+def draw_angle(img, v, p, n, angle, name=None, top=0, right=None):
     """Ký hiệu góc tại đỉnh v (2 cạnh tới p, n) như SGK: góc vuông = ô vuông nhỏ, góc khác = cung tròn nhỏ.
     Có name: viên "góc A = 60°" đặt ngoài hình theo phân giác ngoài, đường chỉ mảnh từ viên tới ký hiệu
     (học sinh đọc được số mà số không đè lên hình); trả về khung viên (x0, y0, x1, y1), không có viên thì None."""
@@ -165,7 +166,7 @@ def draw_angle(img, v, p, n, angle, name=None, top=0):
     label = f"góc {name} = {trim(angle)}°"
     w, h = text_size([label], VALUE_SIZE)
     hw, hh = w / 2 + 10, h / 2 + 5                # nửa khung viên (cả nền tối)
-    c = angle_chip_center(v, (bx, by), hw, hh, img.shape[1], img.shape[0], top)
+    c = angle_chip_center(v, (bx, by), hw, hh, right or img.shape[1], img.shape[0], top)
     edge = min(hw / max(abs(c[0] - v[0]), 1e-3), hh / max(abs(c[1] - v[1]), 1e-3), 1.0)
     start = (c[0] + (v[0] - c[0]) * edge, c[1] + (v[1] - c[1]) * edge)      # mép viên phía đỉnh
     cv2.line(img, ip(start), ip((v[0] + bx * mark, v[1] + by * mark)), ANGLE_COLOR, 1, cv2.LINE_AA)
@@ -173,15 +174,15 @@ def draw_angle(img, v, p, n, angle, name=None, top=0):
     return c[0] - hw, c[1] - hh, c[0] + hw, c[1] + hh
 
 
-def draw_angles(img, s, top=0):
+def draw_angles(img, s, top=0, right=None):
     """Tam giác: ký hiệu + viên số đo từng góc. Hình chữ nhật: 4 góc vuông nên chỉ ô vuông, không ghi số.
-    Trả về khung các viên số đo đã vẽ."""
+    right: mép phải cho viên số đo (trái bảng công thức / cột Tính). Trả về khung các viên số đo đã vẽ."""
     if s["kind"] not in ("triangle", "rect"):
         return []
     pts, angles = s["pts"], measure(s)["angles"]
     angles = round_sum(angles, 180 * (len(pts) - 2))     # số hiện cộng lại đúng 180° (không 179 / 181)
     names = "ABC" if s["kind"] == "triangle" else [None] * 4
-    chips = [draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % len(pts)], angles[i], names[i], top)
+    chips = [draw_angle(img, pts[i], pts[i - 1], pts[(i + 1) % len(pts)], angles[i], names[i], top, right)
              for i in range(len(pts))]
     return [r for r in chips if r]
 
@@ -327,7 +328,7 @@ def draw_tool_overlay(img, ctl):
         draw_selection(img, shape, ERASE_COLOR if tool.near_trash else SELECT_COLOR, ctl.board.scale,
                        ctl.board.unit, letters=False)
         # chu vi / diện tích nằm trong bảng công thức; khung viên góc giữ lại để tay cầm xoay không đè lên
-        tool.avoid = draw_angles(img, shape, ctl.bounds[1]) if angles else []
+        tool.avoid = draw_angles(img, shape, ctl.bounds[1], tool.menu_x - PANEL_EXTRA) if angles else []
         draw_letters(img, shape, SELECT_COLOR, tool.avoid)
         name = shape_name(shape)                  # tên hình làm tiêu đề cột Tính, căn phải theo cột
         w, _ = text_size([name], 22, True)
@@ -397,7 +398,7 @@ def draw_formulas(img, shape, tool, scale, unit):
         return (max(MENU_W, max(w for w, _ in dims) + 2 * PANEL_PAD),
                 sum(h for _, h in dims) + BLOCK_GAP * (len(blocks) - 1) + 2 * PANEL_PAD)
 
-    wide = MENU_W + FIT_MARGIN - 40  # bảng dưới cột không lấn vào vùng đặt hình (fit_box chừa FIT_MARGIN trái cột) + chữ đỉnh
+    wide = MENU_W + PANEL_EXTRA      # vừa phần fit_box chừa cho bảng: không lấn lên viên góc / nhãn cạnh
 
     def fit(top, max_w=wide):        # cỡ chữ lớn nhất (26 -> 14) vừa chỗ còn lại từ top, None nếu không vừa
         return next((sz for sz in range(26, 13, -2)

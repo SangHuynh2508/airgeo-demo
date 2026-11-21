@@ -536,3 +536,31 @@ def test_big_side_chips_do_not_sit_on_their_edge():
             for k in range(101):
                 px, py = a[0] + (b[0] - a[0]) * k / 100, a[1] + (b[1] - a[1]) * k / 100
                 assert not (abs(px - x) < hw and abs(py - y) < hh), (shape["kind"], f, (px, py))
+
+
+
+def test_angle_chips_stay_left_of_the_measure_column_and_formula_panel():
+    import random
+    from airgeo.ui.render import draw_formulas, draw_tool_overlay
+    rng = random.Random(0)
+    shapes = [{"kind": "triangle", "pts": [(0.0, 400.0), (500.0, 400.0), (250.0, 0.0)]}]     # cân, đáy nằm ngang
+    while len(shapes) < 60:
+        pts = [(rng.uniform(0, 600), rng.uniform(0, 400)) for _ in range(3)]
+        if abs((pts[1][0] - pts[0][0]) * (pts[2][1] - pts[0][1]) - (pts[2][0] - pts[0][0]) * (pts[1][1] - pts[0][1])) > 40000:
+            shapes.append({"kind": "triangle", "pts": pts})
+    for shape in shapes:
+        c, sel = _selected(shape, {"angles", "perimeter", "area"})
+        c.board.fit(1, c.fit_box)
+        draw_tool_overlay(np.zeros((720, 1280, 3), np.uint8), c)
+        x0, y0, x1, y1 = draw_formulas(np.zeros((720, 1280, 3), np.uint8), c.board.get(1), sel, 100.0, "cm")
+        for a in sel.avoid:                        # khung các viên "góc A = 60°"
+            assert a[2] <= sel.menu_x, (shape, a)                                   # không chui dưới cột nút
+            assert not (a[0] < x1 and x0 < a[2] and a[1] < y1 and y0 < a[3]), (shape, a, (x0, y0, x1, y1))
+
+
+
+def test_steep_left_edge_label_stays_inside_the_frame():
+    from airgeo.ui.render import side_chips
+    s = {"kind": "triangle", "pts": [(900.0, 182.0), (130.0, 318.0), (144.0, 448.0)]}      # cạnh BC gần đứng sát lề trái
+    for lines, (x, y), (hw, hh) in side_chips(s, 50.0, "cm").values():
+        assert x - hw >= 0, (lines, x - hw)

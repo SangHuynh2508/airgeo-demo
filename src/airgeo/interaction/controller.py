@@ -21,6 +21,7 @@ TOOL_LABELS = {"draw": "Vẽ", "select": "Chọn", "erase": "Xóa"}
 LEGEND_SECONDS = 8.0   # mục Gợi ý / phím H: bảng gợi ý hiện chừng này giây rồi tự ẩn (không che bài giảng mãi)
 FIT_MARGIN = 130      # lề trái / phải quanh hình đã phóng to: chỗ cho nhãn cạnh dọc 2 dòng ("CA =" / "1.5 cm"),
                       # số đo góc, tay cầm xoay; cạnh dọc bên phải thì nhãn không lấn cột Tính
+PANEL_EXTRA = 90      # bảng công thức (chữ 26) rộng hơn cột nút chừng này: vùng đặt hình chừa thêm, bảng không che số đo
 FIT_TOP, FIT_BOTTOM = 90, 180   # lề dưới rộng hơn: nhãn cạnh đáy không sát mép dưới (tay thấp thì mất tay)
 
 
@@ -49,7 +50,7 @@ class Controller:
     def fit_box(self):
         """Vùng đặt hình sau khi vẽ / nhập số đo: vùng vẽ trừ cột Tính bên phải, chừa lề cho nhãn."""
         m = FIT_MARGIN
-        return m, self.bounds[1] + FIT_TOP, self.tools["select"].menu_x - m, self.height - FIT_BOTTOM
+        return m, self.bounds[1] + FIT_TOP, self.tools["select"].menu_x - m - PANEL_EXTRA, self.height - FIT_BOTTOM
 
     def dispatch(self, ev):
         if ev.kind == "down":

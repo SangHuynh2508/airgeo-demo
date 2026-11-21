@@ -262,7 +262,8 @@ def test_drawn_shape_is_centered_and_enlarged(stroke):
 
 def test_fit_box_leaves_more_room_below_than_above():
     c = _ctl()
-    assert c.fit_box == (130, 90, c.tools["select"].menu_x - 130, 720 - 180)   # nhãn cạnh đáy xa mép dưới
+    assert c.fit_box == (130, 90, c.tools["select"].menu_x - 130 - 90, 720 - 180)   # nhãn cạnh đáy xa mép dưới;
+    # bên phải chừa thêm 90 px cho bảng công thức rộng hơn cột nút
     c.key(ord("t"), 0)
     assert c.fit_box[1] == c.toolbar.height + 90
 
