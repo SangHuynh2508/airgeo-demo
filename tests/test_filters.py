@@ -53,3 +53,13 @@ def test_one_euro_set_params_updates_describe():
 
 def test_names_used_in_csv():
     assert [f.name for f in (NoFilter(), MovingAverage(), OneEuro())] == ["none", "moving_avg", "one_euro"]
+
+
+def test_one_euro_reset_behaves_like_a_fresh_filter():
+    from airgeo.filters.one_euro import OneEuro
+    used, fresh = OneEuro(), OneEuro()
+    for i in range(20):                                   # tay ở (0, 0) rồi ra khỏi khung
+        used.filter(0.0, 0.0, i / 30)
+    used.reset()
+    pts = [(500 + (i % 3), 300 - (i % 2), 1 + i / 30) for i in range(10)]   # vào lại cách 500 px
+    assert [used.filter(*p) for p in pts] == [fresh.filter(*p) for p in pts]

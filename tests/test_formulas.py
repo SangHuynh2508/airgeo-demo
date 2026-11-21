@@ -76,3 +76,16 @@ def test_rounded_angles_always_sum_to_the_exact_total():
     from airgeo.geometry.units import round_sum
     shown = round_sum([54.62, 70.76, 54.62], 180)
     assert sum(shown) == 180 and all(abs(a - b) < 1 for a, b in zip(shown, [54.62, 70.76, 54.62]))
+
+
+def test_isosceles_base_angles_are_shown_equal_and_still_sum_to_180():
+    from airgeo.geometry.units import round_sum
+    for vals in ([72.5424, 72.5424, 34.9152], [65.3757, 65.3757, 49.2486], [44.4153, 44.4153, 91.1694]):
+        shown = round_sum(vals, 180)
+        assert shown[0] == shown[1] and abs(sum(shown) - 180) < 1e-9, (vals, shown)
+        assert all(abs(a - b) <= 0.5 for a, b in zip(shown, vals)), (vals, shown)
+    assert round_sum([90.0, 53.1301, 36.8699], 180) == [90, 53, 37]      # bình thường vẫn là số nguyên
+
+
+def test_trim_rounds_half_up_like_at_school():
+    assert trim(0.5 * 1 * 2.17) == "1.09" and trim(2.675) == "2.68" and trim(1.005) == "1.01"

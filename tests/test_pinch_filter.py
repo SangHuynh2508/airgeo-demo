@@ -190,3 +190,13 @@ def test_quick_re_press_after_short_stroke_is_not_pulled_back(make_hand):
     frames += [(make_hand(300, 300, 0.1), "pinch")]                                    # chụm lại ngay
     res, _, _ = _feed(pf, frames)
     assert res.pinched and math.dist(res.fpt, (300, 300)) < 10
+
+
+def test_block_ignores_the_pinch_already_held_until_fingers_open(make_hand):
+    pf = _pf()
+    pf.step(make_hand(100, 200, ratio=0.1), 0.0)            # đang chụm lúc bật / tắt bài đo K
+    pf.block()
+    assert not pf.step(make_hand(100, 200, ratio=0.1), 0.033).pinched     # không thành lần bấm ma
+    for i, r in enumerate((0.25, 0.4, 0.6, 0.6, 0.6, 0.6)):          # mở hẳn > 0.07 s mới nhả
+        pf.step(make_hand(100, 200, ratio=r), 0.066 + i * 0.033)
+    assert pf.step(make_hand(100, 200, ratio=0.1), 0.3).pinched           # chụm lại thật thì bấm

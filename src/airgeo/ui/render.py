@@ -13,7 +13,7 @@ from airgeo.geometry.formulas import formula, triangle_height
 from airgeo.geometry.measure import centroid, measure
 from airgeo.geometry.rotate import edge_angle
 from airgeo.geometry.shapes import is_right, shape_name
-from airgeo.geometry.units import fmt_length, round_sum
+from airgeo.geometry.units import fmt_length, round_sum, trim
 from airgeo.gesture.pinch import draw_point
 from airgeo.interaction.controller import FIT_MARGIN
 from airgeo.tools.select import HANDLE_R, MENU_W
@@ -162,7 +162,7 @@ def draw_angle(img, v, p, n, angle, name=None, top=0):
         mark = ANGLE_R
     if name is None:
         return
-    label = f"góc {name} = {angle:.0f}°"
+    label = f"góc {name} = {trim(angle)}°"
     w, h = text_size([label], VALUE_SIZE)
     hw, hh = w / 2 + 10, h / 2 + 5                # nửa khung viên (cả nền tối)
     c = angle_chip_center(v, (bx, by), hw, hh, img.shape[1], img.shape[0], top)

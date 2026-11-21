@@ -11,13 +11,14 @@ class OneEuro:
 
     def __init__(self, mincutoff=1.0, beta=0.007, dcutoff=1.0, freq=30.0):
         # freq chỉ là ước lượng ban đầu; package tự tính lại từ timestamp ở các frame sau
-        self.mincutoff, self.beta, self.dcutoff = mincutoff, beta, dcutoff
+        self.mincutoff, self.beta, self.dcutoff, self.freq = mincutoff, beta, dcutoff, freq
         self.fx = _OneEuro1D(freq, mincutoff, beta, dcutoff)
         self.fy = _OneEuro1D(freq, mincutoff, beta, dcutoff)
 
     def reset(self):
-        self.fx.reset()
-        self.fy.reset()
+        # Tạo lại 2 bộ lọc: reset() của package giữ giá trị lọc cũ (tay vào lại xa chỗ cũ thì rung ~0.5 s)
+        self.fx = _OneEuro1D(self.freq, self.mincutoff, self.beta, self.dcutoff)
+        self.fy = _OneEuro1D(self.freq, self.mincutoff, self.beta, self.dcutoff)
 
     def set_params(self, mincutoff=None, beta=None):
         if mincutoff is not None:

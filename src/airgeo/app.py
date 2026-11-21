@@ -178,6 +178,7 @@ def run(config: Config):
                 if pointer.down and fitts is None:      # đang chụm: kết thúc thao tác dở trước khi chuyển
                     ctl.dispatch(PointerEvent("up", pointer.last, t))
                 pointer.down = False
+                pf.block()                              # chụm đang giữ không thành lần bấm ma ở màn mới
                 if fitts is None:
                     fitts, fitts_saved = FittsTask(frame.shape[1], frame.shape[0]), False
                 else:

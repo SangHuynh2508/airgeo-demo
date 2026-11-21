@@ -55,6 +55,10 @@ class PinchFilter:
         self.filters = {"none": NoFilter(), "moving_avg": self.moving_avg, "one_euro": self.one_euro}
         self.flt = self.one_euro
 
+    def block(self):
+        """Bỏ qua lần chụm đang giữ (lúc bật / tắt bài đo K): phải tách 2 ngón rồi chụm lại mới tính là bấm."""
+        self._blocked = True
+
     @property
     def pinch(self):
         """Detector của cử chỉ đang dùng (HUD, phím , . chỉnh ngưỡng của nó)."""
